@@ -1,0 +1,13 @@
+[package]
+name = "more-changetoken"
+version = "1.0.0"
+authors = ["Chris Martinez"]
+edition = "2018"
+publish = false
+description = "Provides support for change tokens"
+keywords = ["more", "change", "token"]
+readme = "README.md"
+
+[lib]
+name = "tokens"
+path = "src/lib.rs"

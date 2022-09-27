@@ -8,7 +8,7 @@ keywords = ["more", "change", "token"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/commonsensesoftware/more-rs-changetoken"
-include = ["src/*.rs", "README.md", "LICENSE"]
+include = ["src/*.rs", "README.md"]
 
 [lib]
 name = "tokens"

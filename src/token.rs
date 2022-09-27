@@ -4,7 +4,7 @@ pub trait ChangeToken {
     fn changed(&self) -> bool;
 
     /// Indicates if this token will pro-actively raise callbacks.
-    /// If `false`, the token consumer must poll [`changed`](ChangedToken::changed)
+    /// If `false`, the token consumer must poll [`changed`](ChangeToken::changed)
     /// to detect changes.
     fn must_poll(&self) -> bool {
         false

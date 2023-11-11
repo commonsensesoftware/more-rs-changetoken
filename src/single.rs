@@ -1,44 +1,8 @@
-use crate::ChangeToken;
-use std::rc::{Rc, Weak};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    RwLock,
-};
-
-#[derive(Default)]
-struct TokenTrigger {
-    changed: AtomicBool,
-    callbacks: RwLock<Vec<Box<dyn Fn()>>>,
-}
-
-impl TokenTrigger {
-    fn changed(&self) -> bool {
-        self.changed.load(Ordering::SeqCst)
-    }
-
-    fn register(&self, callback: Box<dyn Fn()>) {
-        self.callbacks.write().unwrap().push(callback)
-    }
-
-    fn fire(&self) {
-        let result = self
-            .changed
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst);
-
-        if let Ok(signaled) = result {
-            if !signaled {
-                for callback in self.callbacks.read().unwrap().iter() {
-                    (callback)()
-                }
-            }
-        }
-    }
-}
+use crate::{ChangeCallback, ChangeToken, DefaultChangeToken, Registration};
 
 /// Represents a [`ChangeToken`](trait.ChangeToken.html) that changes at most once.
 pub struct SingleChangeToken {
-    change: Rc<dyn Fn()>,
-    trigger: Rc<TokenTrigger>,
+    inner: DefaultChangeToken,
 }
 
 impl SingleChangeToken {
@@ -47,39 +11,49 @@ impl SingleChangeToken {
         Self::default()
     }
 
-    /// Creates and returns a trigger callback function for the token.
-    pub fn trigger(&self) -> Weak<dyn Fn()> {
-        Rc::downgrade(&self.change.clone())
+    /// Notifies any registered callbacks of a change.
+    ///
+    /// # Remarks
+    ///
+    /// Registered callbacks will be invoked exactly once. If this function is called more
+    /// than once, no action is performed.
+    pub fn notify(&self) {
+        self.inner.notify()
     }
 }
 
 impl Default for SingleChangeToken {
     fn default() -> Self {
-        let trigger = Rc::new(TokenTrigger::default());
-        let clone = trigger.clone();
-        let change = Rc::new(move || clone.fire());
-        Self { change, trigger }
+        Self {
+            inner: DefaultChangeToken::once(),
+        }
     }
 }
 
 impl ChangeToken for SingleChangeToken {
     fn changed(&self) -> bool {
-        self.trigger.changed()
+        self.inner.changed()
     }
 
-    fn register(&self, callback: Box<dyn Fn()>) {
-        self.trigger.register(callback)
+    fn register(&self, callback: ChangeCallback) -> Registration {
+        self.inner.register(callback)
     }
 }
+
+unsafe impl Send for SingleChangeToken {}
+unsafe impl Sync for SingleChangeToken {}
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    use std::sync::atomic::AtomicU8;
+    use std::sync::{
+        atomic::{AtomicU8, Ordering},
+        Arc,
+    };
 
     #[test]
-    fn one_time_change_token_should_be_unchanged() {
+    fn single_change_token_should_be_unchanged() {
         // arrange
         let token = SingleChangeToken::default();
 
@@ -91,54 +65,49 @@ mod tests {
     }
 
     #[test]
-    fn one_time_change_token_should_be_changed() {
+    fn single_change_token_should_be_changed() {
         // arrange
         let token = SingleChangeToken::default();
-        let trigger = token.trigger().upgrade().unwrap();
 
         // act
-        (trigger)();
+        token.notify();
 
         // assert
         assert_eq!(token.changed(), true);
     }
 
     #[test]
-    fn one_time_change_token_should_invoke_callback() {
+    fn single_change_token_should_invoke_callback() {
         // arrange
-        let counter = Rc::new(AtomicU8::default());
+        let counter = Arc::new(AtomicU8::default());
         let clone = counter.clone();
         let token = SingleChangeToken::default();
-        let trigger = token.trigger().upgrade().unwrap();
-
-        token.register(Box::new(move || {
-            clone.fetch_add(1, Ordering::Relaxed);
+        let _registration = token.register(Box::new(move || {
+            clone.fetch_add(1, Ordering::SeqCst);
         }));
 
         // act
-        (trigger)();
+        token.notify();
 
         // assert
-        assert_eq!(counter.load(Ordering::Relaxed), 1);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
     }
 
     #[test]
-    fn one_time_change_token_should_not_invoke_callback_more_than_once() {
+    fn single_change_token_should_not_invoke_callback_more_than_once() {
         // arrange
-        let counter = Rc::new(AtomicU8::default());
+        let counter = Arc::new(AtomicU8::default());
         let clone = counter.clone();
         let token = SingleChangeToken::default();
-        let trigger = token.trigger().upgrade().unwrap();
-
-        token.register(Box::new(move || {
-            clone.fetch_add(1, Ordering::Relaxed);
+        let _registration = token.register(Box::new(move || {
+            clone.fetch_add(1, Ordering::SeqCst);
         }));
-        (trigger)();
+        token.notify();
 
         // act
-        (trigger)();
+        token.notify();
 
         // assert
-        assert_eq!(counter.load(Ordering::Relaxed), 1);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
     }
 }

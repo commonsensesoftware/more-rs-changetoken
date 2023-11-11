@@ -1,4 +1,4 @@
-use crate::ChangeToken;
+use crate::{ChangeToken, Registration, ChangeCallback};
 
 /// Represents a change token that never changes.
 #[derive(Default)]
@@ -17,8 +17,13 @@ impl ChangeToken for NeverChangeToken {
     }
 
     fn must_poll(&self) -> bool {
-        false
+        true
     }
 
-    fn register(&self, _callback: Box<dyn Fn()>) {}
+    fn register(&self, _callback: ChangeCallback) -> Registration {
+        Registration::none()
+    }
 }
+
+unsafe impl Send for NeverChangeToken {}
+unsafe impl Sync for NeverChangeToken {}

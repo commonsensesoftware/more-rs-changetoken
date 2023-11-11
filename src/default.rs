@@ -35,7 +35,7 @@ impl DefaultChangeToken {
             if !notified {
                 let mut alive;
 
-                // note: acquire a read-lock and capture any callbacks that are still alive.
+                // acquire a read-lock and capture any callbacks that are still alive.
                 // do NOT invoke the callback with the read-lock held. the callback might
                 // register a new callback on the same token which will result in a deadlock.
                 // invoking the callbacks after the read-lock is released ensures that won't happen.
@@ -64,7 +64,7 @@ impl DefaultChangeToken {
 
 impl ChangeToken for DefaultChangeToken {
     fn changed(&self) -> bool {
-        // note: this is uninteresting and unusable in sync contexts. the value
+        // this is uninteresting and unusable in sync contexts. the value
         // will be true, invoke callbacks, and then likely revert to false
         // before it can be observed. it 'might' be useful in an async context,
         // but a callback is the most practical way a change would be observed
@@ -74,7 +74,7 @@ impl ChangeToken for DefaultChangeToken {
     fn register(&self, callback: ChangeCallback) -> Registration {
         let mut callbacks = self.callbacks.write().unwrap();
 
-        // note: writes are much infrequent and we already need to escalate
+        // writes are much infrequent and we already need to escalate
         // to a write-lock, so do the trimming of any dead callbacks now
         if !callbacks.is_empty() {
             for i in (0..callbacks.len()).rev() {

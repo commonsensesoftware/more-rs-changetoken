@@ -13,3 +13,14 @@ include = ["src/*.rs", "README.md"]
 [lib]
 name = "tokens"
 path = "src/lib.rs"
+
+[features]
+fs = ["notify"]
+
+[dependencies]
+notify = { version = "6.1", optional = true }
+
+[dev-dependencies.more-changetoken]
+path = "."
+default-features = false
+features = ["fs"]

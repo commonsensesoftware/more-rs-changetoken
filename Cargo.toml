@@ -1,8 +1,8 @@
 [package]
 name = "more-changetoken"
-version = "1.0.0"
+version = "2.0.0"
 edition = "2018"
-authors = ["Chris Martinez <chris_martinez_77@hotmail.com>"]
+authors = ["Chris Martinez <chris.s.martinez@hotmail.com>"]
 description = "Provides support for change tokens"
 keywords = ["more", "change", "token"]
 license = "MIT"

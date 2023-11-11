@@ -28,7 +28,11 @@ where
     me: Weak<Self>,
     producer: TProducer,
     consumer: TConsumer,
-    registration: Mutex<Registration>,
+
+    // we are mediating between the producer and consumer so we need to hold
+    // onto the current ChangeToken and Registration for the callback function.
+    // these are both dropped when this mediated registration is itself dropped.
+    registration: Mutex<(Option<TToken>, Registration)>,
 }
 
 impl<TToken, TProducer, TConsumer> ChangeTokenRegistration<TToken, TProducer, TConsumer>
@@ -55,8 +59,11 @@ where
         let this = self.me.clone();
         let registration = token.register(Box::new(move || this.upgrade().unwrap().on_notified()));
 
+        // only update the registration if the token hasn't
+        // already changed and it doesn't require polling.
+        // the old token and registration are immediately dropped
         if !token.changed() || token.must_poll() {
-            *self.registration.lock().unwrap() = registration;
+            *self.registration.lock().unwrap() = (Some(token), registration);
         }
     }
 
@@ -87,7 +94,7 @@ mod tests {
         let fired = Arc::new(AtomicBool::default());
         let producer = token.clone();
         let consumer = fired.clone();
-        let _used = on_change(
+        let _unused = on_change(
             move || producer.clone(),
             move || consumer.store(true, Ordering::SeqCst),
         );

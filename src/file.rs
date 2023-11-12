@@ -82,9 +82,11 @@ mod tests {
     use std::time::Duration;
 
     fn new_temp_path(filename: &str) -> PathBuf {
-        PathBuf::new()
-            .join(var("TEMP").or(var("TMP")).or(var("TMPDIR")).unwrap())
-            .join(filename)
+        let temp = var("TEMP")
+            .or(var("TMP"))
+            .or(var("TMPDIR"))
+            .unwrap_or("/tmp".into());
+        PathBuf::new().join(temp).join(filename)
     }
 
     #[test]

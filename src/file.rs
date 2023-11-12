@@ -123,6 +123,7 @@ mod tests {
         let mut file = File::create(&path).unwrap();
 
         file.write_all("updated".as_bytes()).unwrap();
+        thread::sleep(Duration::from_millis(250));
 
         // act
         let changed = token.changed();
@@ -159,6 +160,7 @@ mod tests {
 
         // act
         file.write_all("updated".as_bytes()).unwrap();
+        thread::sleep(Duration::from_millis(250));
 
         let one_second = Duration::from_secs(1);
         let (mutex, event) = &*state;

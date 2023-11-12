@@ -81,12 +81,16 @@ mod tests {
     use std::sync::{Arc, Condvar, Mutex};
     use std::time::Duration;
 
+    fn new_temp_path(filename: &str) -> PathBuf {
+        PathBuf::new()
+            .join(var("TEMP").or(var("TMP")).or(var("TMPDIR")).unwrap())
+            .join(filename)
+    }
+
     #[test]
     fn changed_should_be_false_when_source_file_is_unchanged() {
         // arrange
-        let path = PathBuf::new()
-            .join(var("TEMP").unwrap())
-            .join("test.1.txt");
+        let path = new_temp_path("test.1.txt");
         let mut file = File::create(&path).unwrap();
 
         file.write_all("test".as_bytes()).unwrap();
@@ -107,9 +111,7 @@ mod tests {
     #[test]
     fn changed_should_be_true_when_source_file_changes() {
         // arrange
-        let path = PathBuf::new()
-            .join(var("TEMP").unwrap())
-            .join("test.2.txt");
+        let path = new_temp_path("test.2.txt");
         let mut file = File::create(&path).unwrap();
 
         file.write_all("original".as_bytes()).unwrap();
@@ -134,9 +136,7 @@ mod tests {
     #[test]
     fn callback_should_be_invoked_when_source_file_changes() {
         // arrange
-        let path = PathBuf::new()
-            .join(var("TEMP").unwrap())
-            .join("test.3.txt");
+        let path = new_temp_path("test.3.txt");
         let mut file = File::create(&path).unwrap();
 
         file.write_all("original".as_bytes()).unwrap();
@@ -177,9 +177,7 @@ mod tests {
     #[test]
     fn callback_should_not_be_invoked_after_token_is_dropped() {
         // arrange
-        let path = PathBuf::new()
-            .join(var("TEMP").unwrap())
-            .join("test.4.txt");
+        let path = new_temp_path("test.4.txt");
         let mut file = File::create(&path).unwrap();
 
         file.write_all("original".as_bytes()).unwrap();

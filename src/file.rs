@@ -73,26 +73,17 @@ impl Drop for FileChangeToken {
 mod tests {
 
     use super::*;
-    use std::env::var;
+    use std::env::temp_dir;
     use std::fs::{remove_file, File};
     use std::io::Write;
-    use std::path::PathBuf;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Condvar, Mutex};
     use std::time::Duration;
 
-    fn new_temp_path(filename: &str) -> PathBuf {
-        let temp = var("TEMP")
-            .or(var("TMP"))
-            .or(var("TMPDIR"))
-            .unwrap_or("/tmp".into());
-        PathBuf::new().join(temp).join(filename)
-    }
-
     #[test]
     fn changed_should_be_false_when_source_file_is_unchanged() {
         // arrange
-        let path = new_temp_path("test.1.txt");
+        let path = temp_dir().join("test.1.txt");
         let mut file = File::create(&path).unwrap();
 
         file.write_all("test".as_bytes()).unwrap();
@@ -113,7 +104,7 @@ mod tests {
     #[test]
     fn changed_should_be_true_when_source_file_changes() {
         // arrange
-        let path = new_temp_path("test.2.txt");
+        let path = temp_dir().join("test.2.txt");
         let mut file = File::create(&path).unwrap();
 
         file.write_all("original".as_bytes()).unwrap();
@@ -139,7 +130,7 @@ mod tests {
     #[test]
     fn callback_should_be_invoked_when_source_file_changes() {
         // arrange
-        let path = new_temp_path("test.3.txt");
+        let path = temp_dir().join("test.3.txt");
         let mut file = File::create(&path).unwrap();
 
         file.write_all("original".as_bytes()).unwrap();
@@ -181,7 +172,7 @@ mod tests {
     #[test]
     fn callback_should_not_be_invoked_after_token_is_dropped() {
         // arrange
-        let path = new_temp_path("test.4.txt");
+        let path = temp_dir().join("test.4.txt");
         let mut file = File::create(&path).unwrap();
 
         file.write_all("original".as_bytes()).unwrap();

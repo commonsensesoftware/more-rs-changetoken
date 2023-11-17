@@ -33,24 +33,13 @@ impl DefaultChangeToken {
 
         if let Ok(notified) = result {
             if !notified {
-                let mut alive;
-
                 // acquire a read-lock and capture any callbacks that are still alive.
                 // do NOT invoke the callback with the read-lock held. the callback might
                 // register a new callback on the same token which will result in a deadlock.
                 // invoking the callbacks after the read-lock is released ensures that won't happen.
-                {
-                    let callbacks = self.callbacks.read().unwrap();
-                    alive = Vec::with_capacity(callbacks.len());
+                let callbacks: Vec<_> = self.callbacks.read().unwrap().iter().filter_map(|c| c.upgrade()).collect();
 
-                    for weak in callbacks.iter() {
-                        if let Some(callback) = weak.upgrade() {
-                            alive.push(callback);
-                        }
-                    }
-                }
-
-                for callback in alive {
+                for callback in callbacks {
                     (callback)();
                 }
 

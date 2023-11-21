@@ -39,10 +39,12 @@ impl ToString for Counter {
 
 fn main() {
     let counter = Arc::new(Counter::default());
-    let printable = counter.clone();
-    let registration = counter.watch().register(Box::new(move || {
-        println!("{}", printable.to_string());
-    }));
+    let registration = counter.watch().register(
+        Box::new(|state| {
+            let printable = state.unwrap().downcast_ref::<Counter>().unwrap();
+            println!("{}", printable.to_string());
+        }),
+        Some(counter.clone()));
 
     counter.increment(); // prints 'Value 1'
     counter.increment(); // prints 'Value 2'

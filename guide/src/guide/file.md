@@ -17,13 +17,15 @@ use tokens::FileChangeToken;
 fn main() {
     let path = PathBuf::from("./my-app/files/some.txt");
     let state = Arc::new((Mutex::new(false), Condvar::new()));
-    let state2 = state.clone();
     let token = FileChangeToken::new(&path);
-    let registration = token.register(Box::new(move || {
-        let (fired, event) = &*state2;
+    let registration = token.register(
+      Box::new(|state| {
+        let data = state.unwrap();
+        let (fired, event) = &*data.downcast_ref::<(Mutex<bool>, Condvar)>().unwrap();
         *fired.lock().unwrap() = true;
         event.notify_one();
-    }));
+      }),
+      Some(state.clone()));
     let mut file = File::create(&path).unwrap();
 
     // make a change to the file

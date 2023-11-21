@@ -3,12 +3,15 @@
 A `ChangeToken` has the following capabilities.
 
 ```rust
-pub type ChangeCallback = Box<dyn Fn() + Send + Sync>;
+pub type ChangeCallback = Box<dyn Fn(Option<Arc<dyn Any>>) + Send + Sync>;
 
 pub trait ChangeToken: Send + Sync {
     fn changed(&self) -> bool;
     fn must_poll(&self) -> bool;
-    fn register(&self, callback: ChangeCallback) -> Registration;
+    fn register(
+        &self,
+        callback: ChangeCallback,
+        state: Option<Arc<dyn Any>>) -> Registration;
 }
 ```
 

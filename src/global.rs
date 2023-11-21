@@ -1,4 +1,4 @@
-use crate::{ChangeToken, Registration};
+use crate::{ChangeToken, Registration, Subscription};
 use std::{
     any::Any,
     sync::{Arc, Mutex, Weak},
@@ -15,14 +15,14 @@ pub fn on_change<TToken, TProducer, TConsumer, TState>(
     producer: TProducer,
     consumer: TConsumer,
     state: Option<Arc<TState>>,
-) -> impl Drop
+) -> impl Subscription
 where
     TState: 'static,
     TToken: ChangeToken + 'static,
     TProducer: Fn() -> TToken + Send + Sync + 'static,
     TConsumer: Fn(Option<Arc<TState>>) + Send + Sync + 'static,
 {
-    ChangeTokenRegistration::new(producer, consumer, state)
+    SubscriptionImpl(ChangeTokenRegistration::new(producer, consumer, state))
 }
 
 struct ChangeTokenRegistration<TToken, TProducer, TConsumer, TState>
@@ -94,6 +94,25 @@ where
     }
 }
 
+struct SubscriptionImpl<TToken, TProducer, TConsumer, TState>(
+    Arc<ChangeTokenRegistration<TToken, TProducer, TConsumer, TState>>,
+)
+where
+    TState: 'static,
+    TToken: ChangeToken + 'static,
+    TProducer: Fn() -> TToken + Send + Sync + 'static,
+    TConsumer: Fn(Option<Arc<TState>>) + Send + Sync + 'static;
+
+impl<TToken, TProducer, TConsumer, TState> Subscription
+    for SubscriptionImpl<TToken, TProducer, TConsumer, TState>
+where
+    TState: 'static,
+    TToken: ChangeToken + 'static,
+    TProducer: Fn() -> TToken + Send + Sync + 'static,
+    TConsumer: Fn(Option<Arc<TState>>) + Send + Sync + 'static,
+{
+}
+
 unsafe impl<TToken, TProducer, TConsumer, TState> Send
     for ChangeTokenRegistration<TToken, TProducer, TConsumer, TState>
 where
@@ -152,14 +171,14 @@ mod tests {
         let token = SharedChangeToken::<SingleChangeToken>::default();
         let fired = Arc::new(AtomicBool::default());
         let producer = token.clone();
-        let registration = ManuallyDrop::new(on_change(
+        let subscription = ManuallyDrop::new(on_change(
             move || producer.clone(),
             |state| state.unwrap().store(true, Ordering::SeqCst),
             Some(fired.clone()),
         ));
 
         // act
-        let _ = ManuallyDrop::into_inner(registration);
+        let _ = ManuallyDrop::into_inner(subscription);
         token.notify();
 
         // assert

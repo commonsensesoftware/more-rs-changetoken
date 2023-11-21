@@ -21,3 +21,6 @@ mod file;
 
 #[cfg(feature = "fs")]
 pub use file::*;
+
+/// Defines the behavior of an opaque subscription.
+pub trait Subscription {}

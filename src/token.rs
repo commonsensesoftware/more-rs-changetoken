@@ -34,9 +34,9 @@ pub trait ChangeToken: Send + Sync {
     fn changed(&self) -> bool;
 
     /// Indicates if this token will proactively raise callbacks.
-    /// 
+    ///
     /// # Remarks
-    /// 
+    ///
     /// If `false`, the token consumer should expect for that any callback
     /// specified in [`register`](ChangeToken::register) will be invoked
     /// when a change occurs. If `false`, the token consumer must poll
@@ -51,4 +51,19 @@ pub trait ChangeToken: Send + Sync {
     ///
     /// * `callback` - the callback to invoke
     fn register(&self, callback: ChangeCallback, state: Option<Arc<dyn Any>>) -> Registration;
+}
+
+// this allows Box<dyn ChangeToken> to be used for T: ChangeToken
+impl ChangeToken for Box<dyn ChangeToken> {
+    fn changed(&self) -> bool {
+        self.deref().changed()
+    }
+    
+    fn must_poll(&self) -> bool {
+        self.deref().must_poll()
+    }
+
+    fn register(&self, callback: ChangeCallback, state: Option<Arc<dyn Any>>) -> Registration {
+        self.deref().register(callback, state)
+    }
 }

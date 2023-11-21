@@ -1,7 +1,10 @@
 use crate::{ChangeCallback, ChangeToken, Registration};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, RwLock, Weak,
+use std::{
+    any::Any,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, RwLock, Weak,
+    },
 };
 
 /// Represents a default [`ChangeToken`](trait.ChangeToken.html) that may change zero or more times.
@@ -9,7 +12,12 @@ use std::sync::{
 pub struct DefaultChangeToken {
     once: bool,
     changed: AtomicBool,
-    callbacks: RwLock<Vec<Weak<dyn Fn() + Send + Sync>>>,
+    callbacks: RwLock<
+        Vec<(
+            Weak<dyn Fn(Option<Arc<dyn Any>>) + Send + Sync>,
+            Option<Arc<dyn Any>>,
+        )>,
+    >,
 }
 
 impl DefaultChangeToken {
@@ -37,10 +45,16 @@ impl DefaultChangeToken {
                 // do NOT invoke the callback with the read-lock held. the callback might
                 // register a new callback on the same token which will result in a deadlock.
                 // invoking the callbacks after the read-lock is released ensures that won't happen.
-                let callbacks: Vec<_> = self.callbacks.read().unwrap().iter().filter_map(|c| c.upgrade()).collect();
+                let callbacks: Vec<_> = self
+                    .callbacks
+                    .read()
+                    .unwrap()
+                    .iter()
+                    .filter_map(|r| r.0.upgrade().map(|c| (c, r.1.clone())))
+                    .collect();
 
-                for callback in callbacks {
-                    (callback)();
+                for (callback, state) in callbacks {
+                    callback(state);
                 }
 
                 self.changed
@@ -60,22 +74,22 @@ impl ChangeToken for DefaultChangeToken {
         self.changed.load(Ordering::SeqCst)
     }
 
-    fn register(&self, callback: ChangeCallback) -> Registration {
+    fn register(&self, callback: ChangeCallback, state: Option<Arc<dyn Any>>) -> Registration {
         let mut callbacks = self.callbacks.write().unwrap();
 
         // writes are much infrequent and we already need to escalate
         // to a write-lock, so do the trimming of any dead callbacks now
         if !callbacks.is_empty() {
             for i in (0..callbacks.len()).rev() {
-                if callbacks[i].upgrade().is_none() {
+                if callbacks[i].0.upgrade().is_none() {
                     callbacks.remove(i);
                 }
             }
         }
 
-        let source: Arc<dyn Fn() + Send + Sync> = Arc::from(callback);
+        let source: Arc<dyn Fn(Option<Arc<dyn Any>>) + Send + Sync> = Arc::from(callback);
 
-        callbacks.push(Arc::downgrade(&source));
+        callbacks.push((Arc::downgrade(&source), state));
         Registration::new(source)
     }
 }
@@ -108,11 +122,17 @@ mod tests {
     fn default_change_token_should_invoke_callback() {
         // arrange
         let counter = Arc::new(AtomicU8::default());
-        let clone = counter.clone();
         let token = DefaultChangeToken::default();
-        let _registration = token.register(Box::new(move || {
-            clone.fetch_add(1, Ordering::SeqCst);
-        }));
+        let _registration = token.register(
+            Box::new(|state| {
+                state
+                    .unwrap()
+                    .downcast_ref::<AtomicU8>()
+                    .unwrap()
+                    .fetch_add(1, Ordering::SeqCst);
+            }),
+            Some(counter.clone()),
+        );
 
         // act
         token.notify();
@@ -125,11 +145,17 @@ mod tests {
     fn default_change_token_should_invoke_callback_multiple_times() {
         // arrange
         let counter = Arc::new(AtomicU8::default());
-        let clone = counter.clone();
         let token = DefaultChangeToken::default();
-        let _registration = token.register(Box::new(move || {
-            clone.fetch_add(1, Ordering::SeqCst);
-        }));
+        let _registration = token.register(
+            Box::new(|state| {
+                state
+                    .unwrap()
+                    .downcast_ref::<AtomicU8>()
+                    .unwrap()
+                    .fetch_add(1, Ordering::SeqCst);
+            }),
+            Some(counter.clone()),
+        );
         token.notify();
 
         // act

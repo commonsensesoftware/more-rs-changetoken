@@ -41,13 +41,15 @@ impl ToString for Counter {
 
 fn main() {
   let counters = Arc::new(vec![Counter::new(1), Counter::new(2), Counter::new(3)]);
-  let counters2 = counters.clone();
   let token = CompositeChangeToken::new(counters.iter().map(|c| Box::new(c.watch())));
-  let mut registration = token.register(Box::new(move || {
-      for printable in counters2 {
-          println!("{}", printable.to_string());
-      }
-  }));
+  let mut registration = token.register(
+    Box::new(|state| {
+        let printables = state.unwrap().downcast_ref::<Vec<Counter>>().unwrap();
+        for printable in printables {
+            println!("{}", printable.to_string());
+        }
+    }),
+    Some(counters.clone()));
 
   // prints '[1] Value 0'
   // prints '[2] Value 0'

@@ -1,4 +1,5 @@
 use crate::{ChangeCallback, ChangeToken, DefaultChangeToken, Registration};
+use std::{any::Any, sync::Arc};
 
 /// Represents a [`ChangeToken`](trait.ChangeToken.html) that changes at most once.
 pub struct SingleChangeToken {
@@ -35,8 +36,8 @@ impl ChangeToken for SingleChangeToken {
         self.inner.changed()
     }
 
-    fn register(&self, callback: ChangeCallback) -> Registration {
-        self.inner.register(callback)
+    fn register(&self, callback: ChangeCallback, state: Option<Arc<dyn Any>>) -> Registration {
+        self.inner.register(callback, state)
     }
 }
 
@@ -80,11 +81,13 @@ mod tests {
     fn single_change_token_should_invoke_callback() {
         // arrange
         let counter = Arc::new(AtomicU8::default());
-        let clone = counter.clone();
         let token = SingleChangeToken::default();
-        let _registration = token.register(Box::new(move || {
-            clone.fetch_add(1, Ordering::SeqCst);
-        }));
+        let _registration = token.register(
+            Box::new(|state| {
+                state.unwrap().downcast_ref::<AtomicU8>().unwrap().fetch_add(1, Ordering::SeqCst);
+            }),
+            Some(counter.clone()),
+        );
 
         // act
         token.notify();
@@ -97,11 +100,13 @@ mod tests {
     fn single_change_token_should_not_invoke_callback_more_than_once() {
         // arrange
         let counter = Arc::new(AtomicU8::default());
-        let clone = counter.clone();
         let token = SingleChangeToken::default();
-        let _registration = token.register(Box::new(move || {
-            clone.fetch_add(1, Ordering::SeqCst);
-        }));
+        let _registration = token.register(
+            Box::new(|state| {
+                state.unwrap().downcast_ref::<AtomicU8>().unwrap().fetch_add(1, Ordering::SeqCst);
+            }),
+            Some(counter.clone()),
+        );
         token.notify();
 
         // act

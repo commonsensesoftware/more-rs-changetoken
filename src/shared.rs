@@ -1,5 +1,5 @@
 use crate::{ChangeCallback, ChangeToken, DefaultChangeToken, Registration};
-use std::{borrow::Borrow, ops::Deref, sync::Arc};
+use std::{borrow::Borrow, ops::Deref, sync::Arc, any::Any};
 
 /// Represents a shared [`ChangeToken`](trait.ChangeToken.html).
 pub struct SharedChangeToken<T: ChangeToken = DefaultChangeToken> {
@@ -48,8 +48,8 @@ impl<T: ChangeToken> ChangeToken for SharedChangeToken<T> {
         self.inner.must_poll()
     }
 
-    fn register(&self, callback: ChangeCallback) -> Registration {
-        self.inner.register(callback)
+    fn register(&self, callback: ChangeCallback, state: Option<Arc<dyn Any>>) -> Registration {
+        self.inner.register(callback, state)
     }
 }
 

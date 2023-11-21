@@ -1,5 +1,8 @@
 use crate::{ChangeToken, Registration};
-use std::sync::{Arc, Mutex, Weak};
+use std::{
+    any::Any,
+    sync::{Arc, Mutex, Weak},
+};
 
 /// Registers a consumer action to be invoked whenever the token produced changes.
 ///
@@ -7,27 +10,32 @@ use std::sync::{Arc, Mutex, Weak};
 ///
 /// * `producer` - The function that produces the change token
 /// * `consumer` - The function that is called when the change token changes
-pub fn on_change<TToken, TProducer, TConsumer>(
+/// * `state` - The optional state supplied to the consumer, if any
+pub fn on_change<TToken, TProducer, TConsumer, TState>(
     producer: TProducer,
     consumer: TConsumer,
+    state: Option<Arc<TState>>,
 ) -> impl Drop
 where
+    TState: 'static,
     TToken: ChangeToken + 'static,
     TProducer: Fn() -> TToken + Send + Sync + 'static,
-    TConsumer: Fn() + Send + Sync + 'static,
+    TConsumer: Fn(Option<Arc<TState>>) + Send + Sync + 'static,
 {
-    ChangeTokenRegistration::new(producer, consumer)
+    ChangeTokenRegistration::new(producer, consumer, state)
 }
 
-struct ChangeTokenRegistration<TToken, TProducer, TConsumer>
+struct ChangeTokenRegistration<TToken, TProducer, TConsumer, TState>
 where
-    TToken: ChangeToken,
+    TState: 'static,
+    TToken: ChangeToken + 'static,
     TProducer: Fn() -> TToken + Send + Sync + 'static,
-    TConsumer: Fn() + Send + Sync + 'static,
+    TConsumer: Fn(Option<Arc<TState>>) + Send + Sync + 'static,
 {
     me: Weak<Self>,
     producer: TProducer,
     consumer: TConsumer,
+    state: Option<Arc<TState>>,
 
     // we are mediating between the producer and consumer so we need to hold
     // onto the current ChangeToken and Registration for the callback function.
@@ -35,29 +43,31 @@ where
     registration: Mutex<(Option<TToken>, Registration)>,
 }
 
-impl<TToken, TProducer, TConsumer> ChangeTokenRegistration<TToken, TProducer, TConsumer>
+impl<TToken, TProducer, TConsumer, TState>
+    ChangeTokenRegistration<TToken, TProducer, TConsumer, TState>
 where
+    TState: 'static,
     TToken: ChangeToken + 'static,
     TProducer: Fn() -> TToken + Send + Sync + 'static,
-    TConsumer: Fn() + Send + Sync + 'static,
+    TConsumer: Fn(Option<Arc<TState>>) + Send + Sync + 'static,
 {
-    fn new(producer: TProducer, consumer: TConsumer) -> Arc<Self> {
-        Arc::new_cyclic(|me| {
-            let token = (producer)();
-            let instance = Self {
-                me: me.clone(),
-                producer,
-                consumer,
-                registration: Default::default(),
-            };
-            instance.register(token);
-            instance
-        })
+    fn new(producer: TProducer, consumer: TConsumer, state: Option<Arc<TState>>) -> Arc<Self> {
+        let token = (producer)();
+        let instance = Arc::new_cyclic(|me| Self {
+            me: me.clone(),
+            producer,
+            consumer,
+            state,
+            registration: Default::default(),
+        });
+
+        instance.register(token);
+        instance
     }
 
     fn register(&self, token: TToken) {
-        let this = self.me.clone();
-        let registration = token.register(Box::new(move || this.upgrade().unwrap().on_notified()));
+        let this = Arc::new(self.me.clone());
+        let registration = token.register(Box::new(Self::on_changed), Some(this));
 
         // only update the registration if the token hasn't
         // already changed and it doesn't require polling.
@@ -67,11 +77,41 @@ where
         }
     }
 
+    fn on_changed(state: Option<Arc<dyn Any>>) {
+        state
+            .unwrap()
+            .downcast_ref::<Weak<Self>>()
+            .unwrap()
+            .upgrade()
+            .unwrap()
+            .on_notified()
+    }
+
     fn on_notified(&self) {
         let token = (self.producer)();
-        (self.consumer)();
+        (self.consumer)(self.state.clone());
         self.register(token);
     }
+}
+
+unsafe impl<TToken, TProducer, TConsumer, TState> Send
+    for ChangeTokenRegistration<TToken, TProducer, TConsumer, TState>
+where
+    TState: 'static,
+    TToken: ChangeToken + 'static,
+    TProducer: Fn() -> TToken + Send + Sync + 'static,
+    TConsumer: Fn(Option<Arc<TState>>) + Send + Sync + 'static,
+{
+}
+
+unsafe impl<TToken, TProducer, TConsumer, TState> Sync
+    for ChangeTokenRegistration<TToken, TProducer, TConsumer, TState>
+where
+    TState: 'static,
+    TToken: ChangeToken + 'static,
+    TProducer: Fn() -> TToken + Send + Sync + 'static,
+    TConsumer: Fn(Option<Arc<TState>>) + Send + Sync + 'static,
+{
 }
 
 #[cfg(test)]
@@ -93,10 +133,10 @@ mod tests {
         let token = SharedChangeToken::<DefaultChangeToken>::default();
         let fired = Arc::new(AtomicBool::default());
         let producer = token.clone();
-        let consumer = fired.clone();
         let _unused = on_change(
             move || producer.clone(),
-            move || consumer.store(true, Ordering::SeqCst),
+            |state| state.unwrap().store(true, Ordering::SeqCst),
+            Some(fired.clone()),
         );
 
         // act
@@ -112,10 +152,10 @@ mod tests {
         let token = SharedChangeToken::<SingleChangeToken>::default();
         let fired = Arc::new(AtomicBool::default());
         let producer = token.clone();
-        let consumer = fired.clone();
         let registration = ManuallyDrop::new(on_change(
             move || producer.clone(),
-            move || consumer.store(true, Ordering::SeqCst),
+            |state| state.unwrap().store(true, Ordering::SeqCst),
+            Some(fired.clone()),
         ));
 
         // act

@@ -1,6 +1,8 @@
-use std::sync::{Arc, Weak};
-
 use crate::{ChangeCallback, ChangeToken, Registration, SharedChangeToken, SingleChangeToken};
+use std::{
+    any::Any,
+    sync::{Arc, Weak},
+};
 
 struct Mediator {
     parent: SharedChangeToken<SingleChangeToken>,
@@ -31,12 +33,15 @@ impl Mediator {
                 continue;
             }
 
-            let weak: Weak<Self> = me.clone();
-            let registration = token.register(Box::new(move || {
-                if let Some(this) = weak.upgrade() {
-                    this.parent.notify();
-                }
-            }));
+            let registration = token.register(
+                Box::new(|state| {
+                    let weak = state.unwrap();
+                    if let Some(this) = weak.downcast_ref::<Weak<Self>>().unwrap().upgrade() {
+                        this.parent.notify();
+                    }
+                }),
+                Some(Arc::new(me.clone())),
+            );
 
             registrations.push(registration);
         }
@@ -81,8 +86,8 @@ impl ChangeToken for CompositeChangeToken {
         self.mediator.children.iter().all(|t| t.must_poll())
     }
 
-    fn register(&self, callback: ChangeCallback) -> Registration {
-        self.inner.register(callback)
+    fn register(&self, callback: ChangeCallback, state: Option<Arc<dyn Any>>) -> Registration {
+        self.inner.register(callback, state)
     }
 }
 
@@ -180,10 +185,16 @@ mod tests {
         let tokens: Vec<Box<dyn ChangeToken>> = vec![Box::new(child.clone())];
         let token = CompositeChangeToken::new(tokens.into_iter());
         let counter = Arc::new(AtomicU8::default());
-        let clone = counter.clone();
-        let _registration = token.register(Box::new(move || {
-            clone.fetch_add(1, Ordering::SeqCst);
-        }));
+        let _registration = token.register(
+            Box::new(|state| {
+                state
+                    .unwrap()
+                    .downcast_ref::<AtomicU8>()
+                    .unwrap()
+                    .fetch_add(1, Ordering::SeqCst);
+            }),
+            Some(counter.clone()),
+        );
 
         // act
         child.notify();
@@ -199,10 +210,16 @@ mod tests {
         let tokens: Vec<Box<dyn ChangeToken>> = vec![Box::new(child.clone())];
         let token = CompositeChangeToken::new(tokens.into_iter());
         let counter = Arc::new(AtomicU8::default());
-        let clone = counter.clone();
-        let _registration = token.register(Box::new(move || {
-            clone.fetch_add(1, Ordering::SeqCst);
-        }));
+        let _registration = token.register(
+            Box::new(|state| {
+                state
+                    .unwrap()
+                    .downcast_ref::<AtomicU8>()
+                    .unwrap()
+                    .fetch_add(1, Ordering::SeqCst);
+            }),
+            Some(counter.clone()),
+        );
 
         child.notify();
 
@@ -220,10 +237,16 @@ mod tests {
         let tokens = vec![child];
         let token = CompositeChangeToken::new(tokens.into_iter());
         let counter = Arc::new(AtomicU8::default());
-        let clone = counter.clone();
-        let _registration = token.register(Box::new(move || {
-            clone.fetch_add(1, Ordering::SeqCst);
-        }));
+        let _registration = token.register(
+            Box::new(|state| {
+                state
+                    .unwrap()
+                    .downcast_ref::<AtomicU8>()
+                    .unwrap()
+                    .fetch_add(1, Ordering::SeqCst);
+            }),
+            Some(counter.clone()),
+        );
 
         token.notify();
 

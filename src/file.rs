@@ -1,5 +1,6 @@
 use crate::{ChangeCallback, ChangeToken, Registration, SingleChangeToken};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
+use std::any::Any;
 use std::mem::ManuallyDrop;
 use std::path::Path;
 use std::sync::mpsc::channel;
@@ -25,6 +26,7 @@ impl FileChangeToken {
         let handler = inner.clone();
         let (sender, receiver) = channel();
         let mut watcher = RecommendedWatcher::new(sender, Config::default()).unwrap();
+
         let handle = thread::spawn(move || {
             if let Ok(Ok(event)) = receiver.recv() {
                 if event.kind.is_modify() {
@@ -50,8 +52,8 @@ impl ChangeToken for FileChangeToken {
         self.inner.changed()
     }
 
-    fn register(&self, callback: ChangeCallback) -> Registration {
-        self.inner.register(callback)
+    fn register(&self, callback: ChangeCallback, state: Option<Arc<dyn Any>>) -> Registration {
+        self.inner.register(callback, state)
     }
 }
 
@@ -136,17 +138,20 @@ mod tests {
         file.write_all("original".as_bytes()).unwrap();
         drop(file);
 
-        let changed = Arc::<AtomicBool>::default();
-        let changed2 = changed.clone();
-        let state = Arc::new((Mutex::new(false), Condvar::new()));
-        let state2 = state.clone();
+        let state = Arc::new((Mutex::new(false), Condvar::new(), AtomicBool::default()));
         let token = FileChangeToken::new(&path);
-        let _unused = token.register(Box::new(move || {
-            let (fired, event) = &*state2;
-            changed2.store(true, Ordering::SeqCst);
-            *fired.lock().unwrap() = true;
-            event.notify_one();
-        }));
+        let _unused = token.register(
+            Box::new(|state| {
+                let data = state.unwrap();
+                let (fired, event, value) = data
+                    .downcast_ref::<(Mutex<bool>, Condvar, AtomicBool)>()
+                    .unwrap();
+                value.store(true, Ordering::SeqCst);
+                *fired.lock().unwrap() = true;
+                event.notify_one();
+            }),
+            Some(state.clone()),
+        );
         let mut file = File::create(&path).unwrap();
 
         // act
@@ -154,7 +159,7 @@ mod tests {
         thread::sleep(Duration::from_millis(250));
 
         let one_second = Duration::from_secs(1);
-        let (mutex, event) = &*state;
+        let (mutex, event, changed) = &*state;
         let mut fired = mutex.lock().unwrap();
 
         while !*fired {
@@ -179,9 +184,17 @@ mod tests {
         drop(file);
 
         let changed = Arc::<AtomicBool>::default();
-        let changed2 = changed.clone();
         let token = FileChangeToken::new(&path);
-        let registration = token.register(Box::new(move || changed2.store(true, Ordering::SeqCst)));
+        let registration = token.register(
+            Box::new(|state| {
+                state
+                    .unwrap()
+                    .downcast_ref::<AtomicBool>()
+                    .unwrap()
+                    .store(true, Ordering::SeqCst)
+            }),
+            Some(changed.clone()),
+        );
         let mut file = File::create(&path).unwrap();
 
         // act

@@ -8,6 +8,10 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 /// Represents a change token for a file.
+/// 
+/// # Remarks
+/// 
+/// Registered notifications always occur on another thread.
 pub struct FileChangeToken {
     watcher: ManuallyDrop<RecommendedWatcher>,
     handle: ManuallyDrop<JoinHandle<()>>,
@@ -19,7 +23,7 @@ impl FileChangeToken {
     ///
     /// # Arguments
     ///
-    /// * `path` - The path of the file to watch for changes
+    /// * `path` - The path of the file to watch for changes.
     pub fn new<T: AsRef<Path>>(path: T) -> Self {
         let file = path.as_ref().to_path_buf();
         let inner = Arc::new(SingleChangeToken::default());

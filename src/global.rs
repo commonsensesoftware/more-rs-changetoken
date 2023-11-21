@@ -8,9 +8,15 @@ use std::{
 ///
 /// # Arguments
 ///
-/// * `producer` - The function that produces the change token
-/// * `consumer` - The function that is called when the change token changes
-/// * `state` - The optional state supplied to the consumer, if any
+/// * `producer` - The function that produces the change token.
+/// * `consumer` - The function that is called when the change token changes.
+/// * `state` - The optional state supplied to the consumer, if any.
+/// 
+/// # Returns
+/// 
+/// An opaque [subscription](trait.Subscription.html). When it
+/// is dropped, the producer will no longer be polled and the
+/// consumer will no longer be notified.
 pub fn on_change<TToken, TProducer, TConsumer, TState>(
     producer: TProducer,
     consumer: TConsumer,

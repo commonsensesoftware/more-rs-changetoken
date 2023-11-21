@@ -49,7 +49,13 @@ pub trait ChangeToken: Send + Sync {
     ///
     /// # Arguments
     ///
-    /// * `callback` - the callback to invoke
+    /// * `callback` - The callback to invoke.
+    /// * `state` - The optional state provided to the callback, if any.
+    /// 
+    /// # Returns
+    /// 
+    /// An opaque change token [registration](struct.Registration.html). When it
+    /// is dropped, the callback function is unregistered.
     fn register(&self, callback: ChangeCallback, state: Option<Arc<dyn Any>>) -> Registration;
 }
 

@@ -23,7 +23,7 @@ impl FileChangeToken {
     ///
     /// # Arguments
     ///
-    /// * `path` - The path of the file to watch for changes.
+    /// * `path` - The path of the file to watch for changes
     pub fn new<T: AsRef<Path>>(path: T) -> Self {
         let file = path.as_ref().to_path_buf();
         let inner = Arc::new(SingleChangeToken::default());

@@ -49,8 +49,8 @@ pub trait ChangeToken: Send + Sync {
     ///
     /// # Arguments
     ///
-    /// * `callback` - The callback to invoke.
-    /// * `state` - The optional state provided to the callback, if any.
+    /// * `callback` - The callback to invoke
+    /// * `state` - The optional state provided to the callback, if any
     /// 
     /// # Returns
     /// 

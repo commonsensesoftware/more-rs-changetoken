@@ -11,7 +11,7 @@ impl<T: ChangeToken> SharedChangeToken<T> {
     /// 
     /// # Arguments
     /// 
-    /// * `token` - The [`ChangeToken`](trait.ChangeToken.html) to be shared.
+    /// * `token` - The [`ChangeToken`](trait.ChangeToken.html) to be shared
     pub fn new(token: T) -> Self {
         Self::from(token)
     }

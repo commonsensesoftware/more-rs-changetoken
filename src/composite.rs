@@ -61,7 +61,7 @@ impl CompositeChangeToken {
     ///
     /// # Arguments
     ///
-    /// * `tokens` - A sequence of [`ChangeToken`](trait.ChangeToken.html) instances.
+    /// * `tokens` - A sequence of [`ChangeToken`](trait.ChangeToken.html) instances
     pub fn new(tokens: impl Iterator<Item = Box<dyn ChangeToken>>) -> Self {
         let inner = SharedChangeToken::<SingleChangeToken>::default();
         let shared: SharedChangeToken<SingleChangeToken> = inner.clone();

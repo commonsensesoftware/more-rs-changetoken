@@ -8,9 +8,9 @@ use std::{
 ///
 /// # Arguments
 ///
-/// * `producer` - The function that produces the change token.
-/// * `consumer` - The function that is called when the change token changes.
-/// * `state` - The optional state supplied to the consumer, if any.
+/// * `producer` - The function that produces the change token
+/// * `consumer` - The function that is called when the change token changes
+/// * `state` - The optional state supplied to the consumer, if any
 /// 
 /// # Returns
 /// 

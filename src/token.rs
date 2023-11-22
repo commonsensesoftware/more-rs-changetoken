@@ -1,18 +1,18 @@
 use std::{any::Any, sync::Arc, ops::Deref};
 
-pub type ChangeCallback = Box<dyn Fn(Option<Arc<dyn Any>>) + Send + Sync>;
-type ChangeCallbackRef = Arc<dyn Fn(Option<Arc<dyn Any>>) + Send + Sync>;
+pub type Callback = Box<dyn Fn(Option<Arc<dyn Any>>) + Send + Sync>;
+type CallbackRef = Arc<dyn Fn(Option<Arc<dyn Any>>) + Send + Sync>;
 
 /// Represents a [change token](trait.ChangeToken.html) registration.
 ///
 /// # Remarks
 ///
 /// When the registration is dropped, the underlying callback is unregistered.
-pub struct Registration(ChangeCallbackRef);
+pub struct Registration(CallbackRef);
 
 impl Registration {
     /// Initializes a new change token registration.
-    pub fn new(callback: ChangeCallbackRef) -> Self {
+    pub fn new(callback: CallbackRef) -> Self {
         Self(callback)
     }
 
@@ -56,7 +56,7 @@ pub trait ChangeToken: Send + Sync {
     /// 
     /// An opaque change token [registration](struct.Registration.html). When it
     /// is dropped, the callback function is unregistered.
-    fn register(&self, callback: ChangeCallback, state: Option<Arc<dyn Any>>) -> Registration;
+    fn register(&self, callback: Callback, state: Option<Arc<dyn Any>>) -> Registration;
 }
 
 // this allows Box<dyn ChangeToken> to be used for T: ChangeToken
@@ -69,7 +69,7 @@ impl ChangeToken for Box<dyn ChangeToken> {
         self.deref().must_poll()
     }
 
-    fn register(&self, callback: ChangeCallback, state: Option<Arc<dyn Any>>) -> Registration {
+    fn register(&self, callback: Callback, state: Option<Arc<dyn Any>>) -> Registration {
         self.deref().register(callback, state)
     }
 }

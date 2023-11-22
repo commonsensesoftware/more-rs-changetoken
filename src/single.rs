@@ -1,4 +1,4 @@
-use crate::{ChangeCallback, ChangeToken, DefaultChangeToken, Registration};
+use crate::{Callback, ChangeToken, DefaultChangeToken, Registration};
 use std::{any::Any, sync::Arc};
 
 /// Represents a [`ChangeToken`](trait.ChangeToken.html) that changes at most once.
@@ -36,7 +36,7 @@ impl ChangeToken for SingleChangeToken {
         self.inner.changed()
     }
 
-    fn register(&self, callback: ChangeCallback, state: Option<Arc<dyn Any>>) -> Registration {
+    fn register(&self, callback: Callback, state: Option<Arc<dyn Any>>) -> Registration {
         self.inner.register(callback, state)
     }
 }

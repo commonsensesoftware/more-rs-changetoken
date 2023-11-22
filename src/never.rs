@@ -1,4 +1,4 @@
-use crate::{ChangeCallback, ChangeToken, Registration};
+use crate::{Callback, ChangeToken, Registration};
 use std::{any::Any, sync::Arc};
 
 /// Represents a change token that never changes.
@@ -21,7 +21,7 @@ impl ChangeToken for NeverChangeToken {
         true
     }
 
-    fn register(&self, _callback: ChangeCallback, _state: Option<Arc<dyn Any>>) -> Registration {
+    fn register(&self, _callback: Callback, _state: Option<Arc<dyn Any>>) -> Registration {
         Registration::none()
     }
 }

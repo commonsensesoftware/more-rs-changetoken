@@ -1,4 +1,4 @@
-use crate::{ChangeCallback, ChangeToken, Registration, SingleChangeToken};
+use crate::{Callback, ChangeToken, Registration, SingleChangeToken};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::any::Any;
 use std::mem::ManuallyDrop;
@@ -56,7 +56,7 @@ impl ChangeToken for FileChangeToken {
         self.inner.changed()
     }
 
-    fn register(&self, callback: ChangeCallback, state: Option<Arc<dyn Any>>) -> Registration {
+    fn register(&self, callback: Callback, state: Option<Arc<dyn Any>>) -> Registration {
         self.inner.register(callback, state)
     }
 }

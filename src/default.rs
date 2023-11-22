@@ -1,4 +1,4 @@
-use crate::{ChangeCallback, ChangeToken, Registration};
+use crate::{Callback, ChangeToken, Registration};
 use std::{
     any::Any,
     sync::{
@@ -74,7 +74,7 @@ impl ChangeToken for DefaultChangeToken {
         self.changed.load(Ordering::SeqCst)
     }
 
-    fn register(&self, callback: ChangeCallback, state: Option<Arc<dyn Any>>) -> Registration {
+    fn register(&self, callback: Callback, state: Option<Arc<dyn Any>>) -> Registration {
         let mut callbacks = self.callbacks.write().unwrap();
 
         // writes are much infrequent and we already need to escalate

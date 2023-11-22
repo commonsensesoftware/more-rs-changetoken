@@ -1,4 +1,4 @@
-use crate::{ChangeCallback, ChangeToken, Registration, SharedChangeToken, SingleChangeToken};
+use crate::{Callback, ChangeToken, Registration, SharedChangeToken, SingleChangeToken};
 use std::{
     any::Any,
     sync::{Arc, Weak},
@@ -86,7 +86,7 @@ impl ChangeToken for CompositeChangeToken {
         self.mediator.children.iter().all(|t| t.must_poll())
     }
 
-    fn register(&self, callback: ChangeCallback, state: Option<Arc<dyn Any>>) -> Registration {
+    fn register(&self, callback: Callback, state: Option<Arc<dyn Any>>) -> Registration {
         self.inner.register(callback, state)
     }
 }

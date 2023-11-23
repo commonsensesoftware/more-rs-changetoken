@@ -1,7 +1,7 @@
 use crate::{Callback, ChangeToken, DefaultChangeToken, Registration};
 use std::{any::Any, sync::Arc};
 
-/// Represents a [`ChangeToken`](trait.ChangeToken.html) that changes at most once.
+/// Represents a [`ChangeToken`](crate::ChangeToken) that changes at most once.
 pub struct SingleChangeToken {
     inner: DefaultChangeToken,
 }

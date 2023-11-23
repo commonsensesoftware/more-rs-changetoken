@@ -1,7 +1,7 @@
 use crate::{Callback, ChangeToken, DefaultChangeToken, Registration};
 use std::{borrow::Borrow, ops::Deref, sync::Arc, any::Any};
 
-/// Represents a shared [`ChangeToken`](trait.ChangeToken.html).
+/// Represents a shared [`ChangeToken`](crate::ChangeToken).
 pub struct SharedChangeToken<T: ChangeToken = DefaultChangeToken> {
     inner: Arc<T>,
 }
@@ -11,7 +11,7 @@ impl<T: ChangeToken> SharedChangeToken<T> {
     /// 
     /// # Arguments
     /// 
-    /// * `token` - The [`ChangeToken`](trait.ChangeToken.html) to be shared
+    /// * `token` - The [`ChangeToken`](crate::ChangeToken) to be shared
     pub fn new(token: T) -> Self {
         Self::from(token)
     }

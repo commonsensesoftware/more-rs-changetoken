@@ -3,7 +3,7 @@ use std::{any::Any, sync::Arc, ops::Deref};
 pub type Callback = Box<dyn Fn(Option<Arc<dyn Any>>) + Send + Sync>;
 type CallbackRef = Arc<dyn Fn(Option<Arc<dyn Any>>) + Send + Sync>;
 
-/// Represents a [change token](trait.ChangeToken.html) registration.
+/// Represents a [`ChangeToken`](crate::ChangeToken) registration.
 ///
 /// # Remarks
 ///
@@ -54,7 +54,7 @@ pub trait ChangeToken: Send + Sync {
     /// 
     /// # Returns
     /// 
-    /// An opaque change token [registration](struct.Registration.html). When it
+    /// An opaque change token [registration](Registration). When it
     /// is dropped, the callback function is unregistered.
     fn register(&self, callback: Callback, state: Option<Arc<dyn Any>>) -> Registration;
 }

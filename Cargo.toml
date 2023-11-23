@@ -11,6 +11,11 @@ homepage = "https://commonsensesoftware.github.io/more-rs-changetoken/"
 repository = "https://github.com/commonsensesoftware/more-rs-changetoken"
 include = ["src/*.rs", "README.md"]
 
+# RUSTDOCFLAGS="--cfg docsrs"; cargo +nightly doc
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [lib]
 name = "tokens"
 path = "src/lib.rs"

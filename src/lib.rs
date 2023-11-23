@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod composite;
 mod default;
@@ -20,6 +21,7 @@ pub use token::*;
 mod file;
 
 #[cfg(feature = "fs")]
+#[cfg_attr(docsrs, doc(cfg(feature = "fs")))]
 pub use file::*;
 
 /// Defines the behavior of an opaque subscription.

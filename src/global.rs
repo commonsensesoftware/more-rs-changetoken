@@ -4,19 +4,18 @@ use std::{
     sync::{Arc, Mutex, Weak},
 };
 
-/// Registers a consumer action to be invoked whenever the token produced changes.
+/// Registers a consumer action to be invoked whenever the [token](crate::ChangeToken) produced changes.
 ///
 /// # Arguments
 ///
-/// * `producer` - The function that produces the change token
+/// * `producer` - The function that produces the [change token](crate::ChangeToken)
 /// * `consumer` - The function that is called when the change token changes
-/// * `state` - The optional state supplied to the consumer, if any
+/// * `state` - The optional state supplied to the consumer
 /// 
 /// # Returns
 /// 
-/// An opaque [subscription](trait.Subscription.html). When it
-/// is dropped, the producer will no longer be polled and the
-/// consumer will no longer be notified.
+/// An opaque [subscription](crate::Subscription). When it is dropped, the producer
+/// will no longer be polled and the consumer will no longer be notified.
 pub fn on_change<TToken, TProducer, TConsumer, TState>(
     producer: TProducer,
     consumer: TConsumer,

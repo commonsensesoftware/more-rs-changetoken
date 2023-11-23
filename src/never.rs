@@ -1,7 +1,7 @@
 use crate::{Callback, ChangeToken, Registration};
 use std::{any::Any, sync::Arc};
 
-/// Represents a change token that never changes.
+/// Represents a [`ChangeToken`](crate::ChangeToken) that never changes.
 #[derive(Default)]
 pub struct NeverChangeToken;
 

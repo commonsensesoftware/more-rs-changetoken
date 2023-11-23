@@ -1,10 +1,12 @@
+{{#include links.md}}
+
 # File Change Token
 
 >This type is only available if the **fs** feature is activated
 
-The `FileChangeToken` is a special type of [`ChangeToken`](default.md), which watches for changes to a file and notifies its consumers when a change is observed. The `FileChangeToken` only considers a single change. Once a change has been observed, it will not monitor further changes. The implementation is functionally equivalent to [`SingleChangeToken`](single.md), but for a file change.
+The [`FileChangeToken`] is a special type of [`ChangeToken`](default.md), which watches for changes to a file and notifies its consumers when a change is observed. The [`FileChangeToken`] only considers a single change. Once a change has been observed, it will not monitor further changes. The implementation is functionally equivalent to [`SingleChangeToken`](single.md), but for a file change.
 
->**Important**: `FileChangeToken` callbacks are always invoked on another thread; otherwise, the caller would be blocked waiting for a change.
+>**Important**: [`FileChangeToken`] callbacks are always invoked on another thread; otherwise, the caller would be blocked waiting for a change.
 
 ```rust
 use std::fs::File;

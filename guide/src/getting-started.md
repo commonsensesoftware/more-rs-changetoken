@@ -1,3 +1,5 @@
+{{#include guide/links.md}}
+
 # Getting Started
 
 The simplest way to get started is to install the crate using the default features.
@@ -52,6 +54,6 @@ fn main() {
 }
 ```
 
-Since the registered callback might occur on another thread, the specified function must implement `Send` and `Sync` to ensure it is safe to invoke. Although the backing implementation - `SharedChangeToken` - can be shared, the caller is intentionally unaware of that capability because only an implementation of `ChangeToken` is returned, which does not implement `Clone`. This behavior ensures that a consumer cannot unintentionally propagate copies of the provided to change token to others.
+Since the registered callback might occur on another thread, the specified function must implement `Send` and `Sync` to ensure it is safe to invoke. Although the backing implementation - [`SharedChangeToken`] - can be shared, the caller is intentionally unaware of that capability because only an implementation of [`ChangeToken`] is returned, which does not implement `Clone`. This behavior ensures that a consumer cannot unintentionally propagate copies of the provided to change token to others.
 
-`ChangeToken::register` returns a `Registration` that represents the registration of a callback. When the `Registration` is dropped, the callback is also dropped. A change token will not leak callbacks over time, which means it is important to hold onto the registration for as long as it is needed. Using a discard (e.g. `_`) will immediately drop the registration and callback reference.
+[`register`] returns a [`Registration`] that represents the registration of a callback. When the [`Registration`] is dropped, the callback is also dropped. A change token will not leak callbacks over time, which means it is important to hold onto the registration for as long as it is needed. Using a discard (e.g. `_`) will immediately drop the registration and callback reference.

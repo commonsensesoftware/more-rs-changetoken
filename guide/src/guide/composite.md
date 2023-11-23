@@ -1,6 +1,8 @@
+{{#include links.md}}
+
 # Composite Change Token
 
-Some applications may need to compose or aggregate multiple change tokens. This is the use case for a `CompositeChangeToken`. The `CompositeChangeToken` accepts a sequence of other [`ChangeToken`](default.md) instances and _mediates_ their change notifications. A consumer of a `CompositeChangeToken` will be called back via `CompositeChangeToken::notify` whenever the owner explicitly signals a change or when one of the mediated children signals a change.
+Some applications may need to compose or aggregate multiple change tokens. This is the use case for a [`CompositeChangeToken`]. The [`CompositeChangeToken`] accepts a sequence of other [`ChangeToken`](default.md) instances and _mediates_ their change notifications. A consumer of a [`CompositeChangeToken`] will be called back via [`CompositeChangeToken::notify`] whenever the owner explicitly signals a change or when one of the mediated children signals a change.
 
 ```rust
 use tokens::*;

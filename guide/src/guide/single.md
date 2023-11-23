@@ -1,8 +1,10 @@
+{{#include links.md}}
+
 # Single Change Token
 
-The `SingleChangeToken` behaves the same as the [`DefaultChangeToken`](default.md) with a single exception. It changes exactly once. Once `SingleChangeToken::notify` has been invoked, `ChangeToken::changed` will **always** return `true`. Any registered callbacks will be invoked, at most, once. If a callback is registered after `SingleChangeToken::notify` has been called, it will **never** be invoked.
+The [`SingleChangeToken`] behaves the same as the [`DefaultChangeToken`](default.md) with a single exception. It changes exactly once. Once [`SingleChangeToken::notify`] has been invoked, [`changed`] will **always** return `true`. Any registered callbacks will be invoked, at most, once. If a callback is registered after [`SingleChangeToken::notify`] has been called, it will **never** be invoked.
 
-The design of a [`ChangeToken`](default.md) does not indicate whether it supports multiple notifications. As a result, consumers are likely to create new change tokens from producers often. `SingleChangeToken` tends to be the most commonly used change token. It guarantees at-most once execution and prevents change tokens from living longer than they need to.
+The design of a [`ChangeToken`](default.md) does not indicate whether it supports multiple notifications. As a result, consumers are likely to create new change tokens from producers often. [`SingleChangeToken`] tends to be the most commonly used change token. It guarantees at-most once execution and prevents change tokens from living longer than they need to.
 
 ```rust
 use tokens::*;

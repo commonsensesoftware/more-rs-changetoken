@@ -1,6 +1,8 @@
+{{#include links.md}}
+
 # Never Change Token
 
-There may be edge cases where a [`ChangeToken`](default.md) is required, but there will never been any changes. This is the usage scenario for `NeverChangeToken`. This [`ChangeToken`](default.md) will **never** register any callbacks, `ChangeToken::changed` will always return `false`, and `ChangeToken::must_poll` will always return `true`. `NeverChangeToken` effectively implements the _Null Object_ pattern for the [`ChangeToken`](default.md) trait.
+There may be edge cases where a [`ChangeToken`](default.md) is required, but there will never been any changes. This is the usage scenario for [`NeverChangeToken`]. This [`ChangeToken`](default.md) will **never** register any callbacks, [`changed`] will always return `false`, and [`must_poll`] will always return `true`. [`NeverChangeToken`] effectively implements the _Null Object_ pattern for the [`ChangeToken`](default.md) trait.
 
 ```rust
 use tokens::*;

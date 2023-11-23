@@ -7,7 +7,7 @@ use std::sync::mpsc::channel;
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
-/// Represents a change token for a file.
+/// Represents a [`ChangeToken`](crate::ChangeToken) for a file.
 /// 
 /// # Remarks
 /// 
@@ -23,7 +23,7 @@ impl FileChangeToken {
     ///
     /// # Arguments
     ///
-    /// * `path` - The path of the file to watch for changes
+    /// * `path` - The [path](std::path::Path) of the file to watch for changes
     pub fn new<T: AsRef<Path>>(path: T) -> Self {
         let file = path.as_ref().to_path_buf();
         let inner = Arc::new(SingleChangeToken::default());

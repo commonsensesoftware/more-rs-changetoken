@@ -50,7 +50,7 @@ impl Mediator {
     }
 }
 
-/// Represents a composition of one or more [`ChangeToken`](trait.ChangeToken.html) instances.
+/// Represents a composition of one or more [`ChangeToken`](crate::ChangeToken) instances.
 pub struct CompositeChangeToken {
     inner: SharedChangeToken<SingleChangeToken>,
     mediator: Arc<Mediator>,
@@ -61,7 +61,7 @@ impl CompositeChangeToken {
     ///
     /// # Arguments
     ///
-    /// * `tokens` - A sequence of [`ChangeToken`](trait.ChangeToken.html) instances
+    /// * `tokens` - A sequence of [`ChangeToken`](crate::ChangeToken) instances
     pub fn new(tokens: impl Iterator<Item = Box<dyn ChangeToken>>) -> Self {
         let inner = SharedChangeToken::<SingleChangeToken>::default();
         let shared: SharedChangeToken<SingleChangeToken> = inner.clone();

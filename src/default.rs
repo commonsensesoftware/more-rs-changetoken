@@ -7,7 +7,7 @@ use std::{
     },
 };
 
-/// Represents a default [`ChangeToken`](trait.ChangeToken.html) that may change zero or more times.
+/// Represents a default [`ChangeToken`](crate::ChangeToken) that may change zero or more times.
 #[derive(Default)]
 pub struct DefaultChangeToken {
     once: bool,

@@ -1,0 +1,298 @@
+<!DOCTYPE HTML>
+<html lang="en" class="ayu" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Getting Started - More Change Tokens Documentation</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="theme/custom.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">User Guide</li><li class="chapter-item expanded "><a href="getting-started.html" class="active"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference Guide</li><li class="chapter-item expanded "><a href="guide/default.html"><strong aria-hidden="true">2.</strong> Default Change Token</a></li><li class="chapter-item expanded "><a href="guide/single.html"><strong aria-hidden="true">3.</strong> Single Change Token</a></li><li class="chapter-item expanded "><a href="guide/never.html"><strong aria-hidden="true">4.</strong> Never Change Token</a></li><li class="chapter-item expanded "><a href="guide/shared.html"><strong aria-hidden="true">5.</strong> Shared Change Token</a></li><li class="chapter-item expanded "><a href="guide/composite.html"><strong aria-hidden="true">6.</strong> Composite Change Token</a></li><li class="chapter-item expanded "><a href="guide/file.html"><strong aria-hidden="true">7.</strong> File Change Token</a></li><li class="chapter-item expanded "><a href="guide/functions.html"><strong aria-hidden="true">8.</strong> Functions</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">More Change Tokens Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/commonsensesoftware/more-rs-changetoken/tree/main/guide" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/commonsensesoftware/more-rs-changetoken/edit/main/guide/src/getting-started.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <!--
+This file contains links that can be shared across pages. RustDoc links cannot currently
+be used by mdBook directly. Links are stable on crates.io so we can centralize what is
+required in this file, albeit manually.
+
+REF: https://github.com/rust-lang/mdBook/issues/1356
+REF: https://github.com/rust-lang/cargo/issues/739
+REF: https://github.com/tag1consulting/goose/issues/320
+-->
+<h1 id="getting-started"><a class="header" href="#getting-started">Getting Started</a></h1>
+<p>The simplest way to get started is to install the crate using the default features.</p>
+<pre><code class="language-bash">cargo add more-changetoken
+</code></pre>
+<h2 id="example"><a class="header" href="#example">Example</a></h2>
+<p>A change token provides a way to signal a consumer that a change has occurred. This can commonly occur when using <em>Interior Mutability</em> or when changes happen asynchronously. The most common usage scenario is sharing a change token between a producer and one or more consumers.</p>
+<pre><code class="language-rust">use tokens::*;
+use std::sync::{Arc, RwLock};
+
+#[derive(Default)]
+pub struct Counter {
+    token: SharedChangeToken,
+    value: RwLock&lt;usize&gt;,
+}
+
+impl Counter {
+    pub fn increment(&amp;self) {
+        *self.value.write().unwrap() += 1;
+        self.token.notify();
+    }
+
+    pub fn watch(&amp;self) -&gt; impl ChangeToken {
+        self.token.clone()
+    }
+}
+
+impl ToString for Counter {
+    fn to_string(&amp;self) -&gt; String {
+        format!(&quot;Value: {}&quot;, *self.value.read().unwrap())
+    }
+}
+
+fn main() {
+    let counter = Arc::new(Counter::default());
+    let registration = counter.watch().register(
+        Box::new(|state| {
+            let printable = state.unwrap().downcast_ref::&lt;Counter&gt;().unwrap();
+            println!(&quot;{}&quot;, printable.to_string());
+        }),
+        Some(counter.clone()));
+
+    counter.increment(); // prints 'Value 1'
+    counter.increment(); // prints 'Value 2'
+    counter.increment(); // prints 'Value 3'
+}</code></pre>
+<p>Since the registered callback might occur on another thread, the specified function must implement <code>Send</code> and <code>Sync</code> to ensure it is safe to invoke. Although the backing implementation - <a href="https://docs.rs/more-changetoken/2.0.0/tokens/struct.SharedChangeToken.html"><code>SharedChangeToken</code></a> - can be shared, the caller is intentionally unaware of that capability because only an implementation of <a href="https://docs.rs/more-changetoken/2.0.0/tokens/trait.ChangeToken.html"><code>ChangeToken</code></a> is returned, which does not implement <code>Clone</code>. This behavior ensures that a consumer cannot unintentionally propagate copies of the provided to change token to others.</p>
+<p><a href="https://docs.rs/more-changetoken/2.0.0/tokens/trait.ChangeToken.html#method.register"><code>register</code></a> returns a <a href="https://docs.rs/more-changetoken/2.0.0/tokens/struct.Registration.html"><code>Registration</code></a> that represents the registration of a callback. When the <a href="https://docs.rs/more-changetoken/2.0.0/tokens/struct.Registration.html"><code>Registration</code></a> is dropped, the callback is also dropped. A change token will not leak callbacks over time, which means it is important to hold onto the registration for as long as it is needed. Using a discard (e.g. <code>_</code>) will immediately drop the registration and callback reference.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="guide/default.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="guide/default.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+        <script>
+            window.playground_line_numbers = true;
+        </script>
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+        <script src="ace.js"></script>
+        <script src="editor.js"></script>
+        <script src="mode-rust.js"></script>
+        <script src="theme-dawn.js"></script>
+        <script src="theme-tomorrow_night.js"></script>
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

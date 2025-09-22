@@ -1,21 +1,72 @@
 use crate::{Callback, ChangeToken, Registration};
 use std::{
     any::Any,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, RwLock, Weak,
-    },
+    mem,
+    sync::{Arc, Mutex, Weak},
 };
 
-type StatefulCallback = dyn Fn(Option<Arc<dyn Any>>) + Send + Sync;
-type CallbackWithState = (Weak<StatefulCallback>, Option<Arc<dyn Any>>);
+type State = Option<Arc<dyn Any>>;
+type StatefulCallback = dyn Fn(State) + Send + Sync;
+type CallbackWithState = (Weak<StatefulCallback>, State);
+
+struct Ready {
+    fired: bool,
+    callbacks: Vec<(Arc<StatefulCallback>, State)>,
+}
+
+impl IntoIterator for Ready {
+    type Item = (Arc<StatefulCallback>, State);
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.callbacks.into_iter()
+    }
+}
+
+#[derive(Default)]
+struct Notification {
+    fired: bool,
+    callbacks: Vec<CallbackWithState>,
+}
+
+impl Notification {
+    fn fire(&mut self, once: bool) -> Ready {
+        Ready {
+            fired: mem::replace(&mut self.fired, once),
+            callbacks: self
+                .callbacks
+                .iter()
+                .filter_map(|r| r.0.upgrade().map(|c| (c, r.1.clone())))
+                .collect(),
+        }
+    }
+
+    fn register(
+        &mut self,
+        callback: Callback,
+        state: Option<Arc<dyn Any>>,
+    ) -> Arc<StatefulCallback> {
+        // writes are much infrequent, so do the trimming of any dead callbacks now
+        if !self.callbacks.is_empty() {
+            for i in (0..self.callbacks.len()).rev() {
+                if self.callbacks[i].0.upgrade().is_none() {
+                    self.callbacks.remove(i);
+                }
+            }
+        }
+
+        let source: Arc<StatefulCallback> = Arc::from(callback);
+
+        self.callbacks.push((Arc::downgrade(&source), state));
+        source
+    }
+}
 
 /// Represents a default [`ChangeToken`](crate::ChangeToken) that may change zero or more times.
 #[derive(Default)]
 pub struct DefaultChangeToken {
     once: bool,
-    changed: AtomicBool,
-    callbacks: RwLock<Vec<CallbackWithState>>,
+    notification: Mutex<Notification>,
 }
 
 impl DefaultChangeToken {
@@ -33,31 +84,11 @@ impl DefaultChangeToken {
 
     /// Notifies any registered callbacks of a change.
     pub fn notify(&self) {
-        let result = self
-            .changed
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst);
+        let notification = self.notification.lock().unwrap().fire(self.once);
 
-        if let Ok(notified) = result {
-            if !notified {
-                // acquire a read-lock and capture any callbacks that are still alive.
-                // do NOT invoke the callback with the read-lock held. the callback might
-                // register a new callback on the same token which will result in a deadlock.
-                // invoking the callbacks after the read-lock is released ensures that won't happen.
-                let callbacks: Vec<_> = self
-                    .callbacks
-                    .read()
-                    .unwrap()
-                    .iter()
-                    .filter_map(|r| r.0.upgrade().map(|c| (c, r.1.clone())))
-                    .collect();
-
-                for (callback, state) in callbacks {
-                    callback(state);
-                }
-
-                self.changed
-                    .compare_exchange(true, self.once, Ordering::SeqCst, Ordering::SeqCst)
-                    .ok();
+        if !notification.fired {
+            for (callback, state) in notification {
+                callback(state);
             }
         }
     }
@@ -69,26 +100,11 @@ impl ChangeToken for DefaultChangeToken {
         // will be true, invoke callbacks, and then likely revert to false
         // before it can be observed. it 'might' be useful in an async context,
         // but a callback is the most practical way a change would be observed
-        self.changed.load(Ordering::SeqCst)
+        self.notification.lock().unwrap().fired
     }
 
     fn register(&self, callback: Callback, state: Option<Arc<dyn Any>>) -> Registration {
-        let mut callbacks = self.callbacks.write().unwrap();
-
-        // writes are much infrequent and we already need to escalate
-        // to a write-lock, so do the trimming of any dead callbacks now
-        if !callbacks.is_empty() {
-            for i in (0..callbacks.len()).rev() {
-                if callbacks[i].0.upgrade().is_none() {
-                    callbacks.remove(i);
-                }
-            }
-        }
-
-        let source: Arc<StatefulCallback> = Arc::from(callback);
-
-        callbacks.push((Arc::downgrade(&source), state));
-        Registration::new(source)
+        Registration::new(self.notification.lock().unwrap().register(callback, state))
     }
 }
 
@@ -100,7 +116,7 @@ mod tests {
 
     use super::*;
     use std::sync::{
-        atomic::{AtomicU8, Ordering},
+        atomic::{AtomicU8, Ordering::Relaxed},
         Arc,
     };
 
@@ -127,7 +143,7 @@ mod tests {
                     .unwrap()
                     .downcast_ref::<AtomicU8>()
                     .unwrap()
-                    .fetch_add(1, Ordering::SeqCst);
+                    .fetch_add(1, Relaxed);
             }),
             Some(counter.clone()),
         );
@@ -136,7 +152,7 @@ mod tests {
         token.notify();
 
         // assert
-        assert_eq!(counter.load(Ordering::SeqCst), 1);
+        assert_eq!(counter.load(Relaxed), 1);
     }
 
     #[test]
@@ -150,7 +166,7 @@ mod tests {
                     .unwrap()
                     .downcast_ref::<AtomicU8>()
                     .unwrap()
-                    .fetch_add(1, Ordering::SeqCst);
+                    .fetch_add(1, Relaxed);
             }),
             Some(counter.clone()),
         );
@@ -160,6 +176,6 @@ mod tests {
         token.notify();
 
         // assert
-        assert_eq!(counter.load(Ordering::SeqCst), 2);
+        assert_eq!(counter.load(Relaxed), 2);
     }
 }

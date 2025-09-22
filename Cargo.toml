@@ -1,8 +1,8 @@
 [package]
 name = "more-changetoken"
-version = "2.0.0"
+version = "2.0.1"
 edition = "2018"
-authors = ["Chris Martinez <chris.s.martinez@hotmail.com>"]
+authors = ["Chris Martinez <chris.s.martinez@outlook.com>"]
 description = "Provides support for change tokens"
 keywords = ["more", "change", "token"]
 license = "MIT"
@@ -26,7 +26,6 @@ fs = ["notify"]
 [dependencies]
 notify = { version = "6.1", optional = true }
 
-[dev-dependencies.more-changetoken]
-path = "."
-default-features = false
-features = ["fs"]
+[dev-dependencies]
+more-changetoken = { path = ".", features = ["fs"] }
+tempfile = "3.22"

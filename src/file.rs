@@ -1,16 +1,15 @@
 use crate::{Callback, ChangeToken, Registration, SingleChangeToken};
-use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
-use std::any::Any;
-use std::mem::ManuallyDrop;
+use notify::{Config, RecommendedWatcher, RecursiveMode::NonRecursive, Watcher};
 use std::path::Path;
 use std::sync::mpsc::channel;
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
+use std::{any::Any, mem::ManuallyDrop};
 
 /// Represents a [`ChangeToken`](crate::ChangeToken) for a file.
-/// 
+///
 /// # Remarks
-/// 
+///
 /// Registered notifications always occur on another thread.
 pub struct FileChangeToken {
     watcher: ManuallyDrop<RecommendedWatcher>,
@@ -26,22 +25,32 @@ impl FileChangeToken {
     /// * `path` - The [path](std::path::Path) of the file to watch for changes
     pub fn new<T: AsRef<Path>>(path: T) -> Self {
         let file = path.as_ref().to_path_buf();
+        let path = file.clone();
         let inner = Arc::new(SingleChangeToken::default());
         let handler = inner.clone();
         let (sender, receiver) = channel();
         let mut watcher = RecommendedWatcher::new(sender, Config::default()).unwrap();
-
         let handle = thread::spawn(move || {
             if let Ok(Ok(event)) = receiver.recv() {
-                if event.kind.is_modify() {
-                    handler.notify()
+                let changed =
+                    event.kind.is_modify() || event.kind.is_create() || event.kind.is_remove();
+
+                if changed || event.need_rescan() {
+                    let mut paths = event.paths.iter();
+                    let other = path.as_os_str();
+
+                    if paths.any(|p| p.as_os_str().eq_ignore_ascii_case(other)) {
+                        handler.notify();
+                    }
                 }
             }
         });
 
-        watcher
-            .watch(file.as_ref(), RecursiveMode::NonRecursive)
-            .unwrap();
+        if let Some(folder) = file.parent() {
+            if folder.exists() {
+                watcher.watch(folder, NonRecursive).unwrap();
+            }
+        }
 
         Self {
             watcher: ManuallyDrop::new(watcher),
@@ -79,45 +88,40 @@ impl Drop for FileChangeToken {
 mod tests {
 
     use super::*;
-    use std::env::temp_dir;
-    use std::fs::{remove_file, File};
-    use std::io::Write;
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::{Arc, Condvar, Mutex};
-    use std::time::Duration;
+    use std::sync::{
+        atomic::{AtomicBool, Ordering::Relaxed},
+        Arc, Condvar, Mutex,
+    };
+    use std::time::{Duration, Instant};
+    use std::{fs::File, io::Write};
+    use tempfile::{NamedTempFile, TempPath};
 
     #[test]
     fn changed_should_be_false_when_source_file_is_unchanged() {
         // arrange
-        let path = temp_dir().join("test.1.txt");
-        let mut file = File::create(&path).unwrap();
+        let mut file = NamedTempFile::new().expect("new file");
 
         file.write_all("test".as_bytes()).unwrap();
 
-        let token = FileChangeToken::new(&path);
+        let token = FileChangeToken::new(file.path());
 
         // act
         let changed = token.changed();
 
         // assert
-        if path.exists() {
-            remove_file(&path).ok();
-        }
-
         assert!(!changed);
     }
 
     #[test]
     fn changed_should_be_true_when_source_file_changes() {
         // arrange
-        let path = temp_dir().join("test.2.txt");
-        let mut file = File::create(&path).unwrap();
+        let mut file = NamedTempFile::new().expect("new file");
 
         file.write_all("original".as_bytes()).unwrap();
-        drop(file);
 
+        let path = file.into_temp_path();
         let token = FileChangeToken::new(&path);
-        let mut file = File::create(&path).unwrap();
+        let mut file = NamedTempFile::from_parts(File::create(&path).expect("valid path"), path);
 
         file.write_all("updated".as_bytes()).unwrap();
         thread::sleep(Duration::from_millis(250));
@@ -126,22 +130,17 @@ mod tests {
         let changed = token.changed();
 
         // assert
-        if path.exists() {
-            remove_file(&path).ok();
-        }
-
         assert!(changed);
     }
 
     #[test]
     fn callback_should_be_invoked_when_source_file_changes() {
         // arrange
-        let path = temp_dir().join("test.3.txt");
-        let mut file = File::create(&path).unwrap();
+        let mut file = NamedTempFile::new().expect("new file");
 
         file.write_all("original".as_bytes()).unwrap();
-        drop(file);
 
+        let path = file.into_temp_path();
         let state = Arc::new((Mutex::new(false), Condvar::new(), AtomicBool::default()));
         let token = FileChangeToken::new(&path);
         let _unused = token.register(
@@ -150,43 +149,39 @@ mod tests {
                 let (fired, event, value) = data
                     .downcast_ref::<(Mutex<bool>, Condvar, AtomicBool)>()
                     .unwrap();
-                value.store(true, Ordering::SeqCst);
+                value.store(true, Relaxed);
                 *fired.lock().unwrap() = true;
                 event.notify_one();
             }),
             Some(state.clone()),
         );
-        let mut file = File::create(&path).unwrap();
+        let mut file = NamedTempFile::from_parts(File::create(&path).expect("valid path"), path);
 
         // act
         file.write_all("updated".as_bytes()).unwrap();
-        thread::sleep(Duration::from_millis(250));
 
-        let one_second = Duration::from_secs(1);
+        let time = Instant::now();
+        let quarter_second = Duration::from_millis(250);
+        let three_seconds = Duration::from_secs(3);
         let (mutex, event, changed) = &*state;
         let mut fired = mutex.lock().unwrap();
 
-        while !*fired {
-            fired = event.wait_timeout(fired, one_second).unwrap().0;
+        while !*fired && time.elapsed() < three_seconds {
+            fired = event.wait_timeout(fired, quarter_second).unwrap().0;
         }
 
         // assert
-        if path.exists() {
-            remove_file(&path).ok();
-        }
-
-        assert!(changed.load(Ordering::SeqCst));
+        assert!(changed.load(Relaxed));
     }
 
     #[test]
     fn callback_should_not_be_invoked_after_token_is_dropped() {
         // arrange
-        let path = temp_dir().join("test.4.txt");
-        let mut file = File::create(&path).unwrap();
+        let mut file = NamedTempFile::new().expect("new file");
 
         file.write_all("original".as_bytes()).unwrap();
-        drop(file);
 
+        let path = file.into_temp_path();
         let changed = Arc::<AtomicBool>::default();
         let token = FileChangeToken::new(&path);
         let registration = token.register(
@@ -195,11 +190,11 @@ mod tests {
                     .unwrap()
                     .downcast_ref::<AtomicBool>()
                     .unwrap()
-                    .store(true, Ordering::SeqCst)
+                    .store(true, Relaxed)
             }),
             Some(changed.clone()),
         );
-        let mut file = File::create(&path).unwrap();
+        let mut file = NamedTempFile::from_parts(File::create(&path).expect("valid path"), path);
 
         // act
         drop(registration);
@@ -208,10 +203,85 @@ mod tests {
         thread::sleep(Duration::from_millis(250));
 
         // assert
-        if path.exists() {
-            remove_file(&path).ok();
+        assert_eq!(changed.load(Relaxed), false);
+    }
+
+    #[test]
+    fn callback_should_be_invoked_when_source_file_is_created() {
+        // arrange
+        let path = std::env::temp_dir().join("new_file.txt");
+        let state = Arc::new((Mutex::new(false), Condvar::new(), AtomicBool::default()));
+        let token = FileChangeToken::new(&path);
+        let _unused = token.register(
+            Box::new(|state| {
+                let data = state.unwrap();
+                let (fired, event, value) = data
+                    .downcast_ref::<(Mutex<bool>, Condvar, AtomicBool)>()
+                    .unwrap();
+                value.store(true, Relaxed);
+                *fired.lock().unwrap() = true;
+                event.notify_one();
+            }),
+            Some(state.clone()),
+        );
+        let mut file = NamedTempFile::from_parts(
+            File::create(&path).expect("valid path"),
+            TempPath::from_path(path),
+        );
+
+        // act
+        file.write_all("updated".as_bytes()).unwrap();
+
+        let time = Instant::now();
+        let quarter_second = Duration::from_millis(250);
+        let three_seconds = Duration::from_secs(3);
+        let (mutex, event, changed) = &*state;
+        let mut fired = mutex.lock().unwrap();
+
+        while !*fired && time.elapsed() < three_seconds {
+            fired = event.wait_timeout(fired, quarter_second).unwrap().0;
         }
 
-        assert_eq!(changed.load(Ordering::SeqCst), false);
+        // assert
+        assert!(changed.load(Relaxed));
+    }
+
+    #[test]
+    fn callback_should_be_invoked_when_source_file_is_removed() {
+        // arrange
+        let mut file = NamedTempFile::new().expect("new file");
+
+        file.write_all("existing".as_bytes()).unwrap();
+
+        let state = Arc::new((Mutex::new(false), Condvar::new(), AtomicBool::default()));
+        let token = FileChangeToken::new(file.path());
+        let _unused = token.register(
+            Box::new(|state| {
+                let data = state.unwrap();
+                let (fired, event, value) = data
+                    .downcast_ref::<(Mutex<bool>, Condvar, AtomicBool)>()
+                    .unwrap();
+                value.store(true, Relaxed);
+                *fired.lock().unwrap() = true;
+                event.notify_one();
+            }),
+            Some(state.clone()),
+        );
+
+        // act
+        drop(file);
+
+        let time = Instant::now();
+        let quarter_second = Duration::from_millis(250);
+        let three_seconds = Duration::from_secs(3);
+        let (mutex, event, changed) = &*state;
+        let mut fired = mutex.lock().unwrap();
+
+        while !*fired && time.elapsed() < three_seconds {
+            fired = event.wait_timeout(fired, quarter_second).unwrap().0;
+        }
+
+        // assert
+        assert!(changed.load(Relaxed));
     }
 }

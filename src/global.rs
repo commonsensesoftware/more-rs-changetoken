@@ -137,7 +137,7 @@ mod tests {
     use std::{
         mem::ManuallyDrop,
         sync::{
-            atomic::{AtomicBool, Ordering},
+            atomic::{AtomicBool, Ordering::Relaxed},
             Arc,
         },
     };
@@ -150,7 +150,7 @@ mod tests {
         let producer = token.clone();
         let _unused = on_change(
             move || producer.clone(),
-            |state| state.unwrap().store(true, Ordering::SeqCst),
+            |state| state.unwrap().store(true, Relaxed),
             Some(fired.clone()),
         );
 
@@ -158,7 +158,7 @@ mod tests {
         token.notify();
 
         // assert
-        assert!(fired.load(Ordering::SeqCst));
+        assert!(fired.load(Relaxed));
     }
 
     #[test]
@@ -169,7 +169,7 @@ mod tests {
         let producer = token.clone();
         let subscription = ManuallyDrop::new(on_change(
             move || producer.clone(),
-            |state| state.unwrap().store(true, Ordering::SeqCst),
+            |state| state.unwrap().store(true, Relaxed),
             Some(fired.clone()),
         ));
 
@@ -178,6 +178,6 @@ mod tests {
         token.notify();
 
         // assert
-        assert!(!fired.load(Ordering::SeqCst));
+        assert!(!fired.load(Relaxed));
     }
 }

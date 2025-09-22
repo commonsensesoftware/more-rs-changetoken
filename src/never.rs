@@ -8,7 +8,7 @@ pub struct NeverChangeToken;
 impl NeverChangeToken {
     /// Initializes a new change token.
     pub fn new() -> Self {
-        Self::default()
+        Self
     }
 }
 

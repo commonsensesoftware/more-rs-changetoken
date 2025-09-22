@@ -7,17 +7,15 @@ use std::{
     },
 };
 
+type StatefulCallback = dyn Fn(Option<Arc<dyn Any>>) + Send + Sync;
+type CallbackWithState = (Weak<StatefulCallback>, Option<Arc<dyn Any>>);
+
 /// Represents a default [`ChangeToken`](crate::ChangeToken) that may change zero or more times.
 #[derive(Default)]
 pub struct DefaultChangeToken {
     once: bool,
     changed: AtomicBool,
-    callbacks: RwLock<
-        Vec<(
-            Weak<dyn Fn(Option<Arc<dyn Any>>) + Send + Sync>,
-            Option<Arc<dyn Any>>,
-        )>,
-    >,
+    callbacks: RwLock<Vec<CallbackWithState>>,
 }
 
 impl DefaultChangeToken {
@@ -87,7 +85,7 @@ impl ChangeToken for DefaultChangeToken {
             }
         }
 
-        let source: Arc<dyn Fn(Option<Arc<dyn Any>>) + Send + Sync> = Arc::from(callback);
+        let source: Arc<StatefulCallback> = Arc::from(callback);
 
         callbacks.push((Arc::downgrade(&source), state));
         Registration::new(source)

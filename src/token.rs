@@ -8,6 +8,7 @@ type CallbackRef = Arc<dyn Fn(Option<Arc<dyn Any>>) + Send + Sync>;
 /// # Remarks
 ///
 /// When the registration is dropped, the underlying callback is unregistered.
+#[allow(dead_code)]
 pub struct Registration(CallbackRef);
 
 impl Registration {

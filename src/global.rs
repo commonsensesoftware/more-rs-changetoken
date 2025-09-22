@@ -11,9 +11,9 @@ use std::{
 /// * `producer` - The function that produces the [change token](crate::ChangeToken)
 /// * `consumer` - The function that is called when the change token changes
 /// * `state` - The optional state supplied to the consumer
-/// 
+///
 /// # Returns
-/// 
+///
 /// An opaque [subscription](crate::Subscription). When it is dropped, the producer
 /// will no longer be polled and the consumer will no longer be notified.
 pub fn on_change<TToken, TProducer, TConsumer, TState>(
@@ -27,7 +27,7 @@ where
     TProducer: Fn() -> TToken + Send + Sync + 'static,
     TConsumer: Fn(Option<Arc<TState>>) + Send + Sync + 'static,
 {
-    SubscriptionImpl(ChangeTokenRegistration::new(producer, consumer, state))
+    ChangeTokenRegistration::new(producer, consumer, state)
 }
 
 struct ChangeTokenRegistration<TToken, TProducer, TConsumer, TState>
@@ -99,17 +99,8 @@ where
     }
 }
 
-struct SubscriptionImpl<TToken, TProducer, TConsumer, TState>(
-    Arc<ChangeTokenRegistration<TToken, TProducer, TConsumer, TState>>,
-)
-where
-    TState: 'static,
-    TToken: ChangeToken + 'static,
-    TProducer: Fn() -> TToken + Send + Sync + 'static,
-    TConsumer: Fn(Option<Arc<TState>>) + Send + Sync + 'static;
-
 impl<TToken, TProducer, TConsumer, TState> Subscription
-    for SubscriptionImpl<TToken, TProducer, TConsumer, TState>
+    for Arc<ChangeTokenRegistration<TToken, TProducer, TConsumer, TState>>
 where
     TState: 'static,
     TToken: ChangeToken + 'static,

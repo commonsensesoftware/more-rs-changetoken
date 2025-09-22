@@ -49,7 +49,7 @@ mod tests {
 
     use super::*;
     use std::sync::{
-        atomic::{AtomicU8, Ordering},
+        atomic::{AtomicU8, Ordering::Relaxed},
         Arc,
     };
 
@@ -84,7 +84,7 @@ mod tests {
         let token = SingleChangeToken::default();
         let _registration = token.register(
             Box::new(|state| {
-                state.unwrap().downcast_ref::<AtomicU8>().unwrap().fetch_add(1, Ordering::SeqCst);
+                state.unwrap().downcast_ref::<AtomicU8>().unwrap().fetch_add(1, Relaxed);
             }),
             Some(counter.clone()),
         );
@@ -93,7 +93,7 @@ mod tests {
         token.notify();
 
         // assert
-        assert_eq!(counter.load(Ordering::SeqCst), 1);
+        assert_eq!(counter.load(Relaxed), 1);
     }
 
     #[test]
@@ -103,7 +103,7 @@ mod tests {
         let token = SingleChangeToken::default();
         let _registration = token.register(
             Box::new(|state| {
-                state.unwrap().downcast_ref::<AtomicU8>().unwrap().fetch_add(1, Ordering::SeqCst);
+                state.unwrap().downcast_ref::<AtomicU8>().unwrap().fetch_add(1, Relaxed);
             }),
             Some(counter.clone()),
         );
@@ -113,6 +113,6 @@ mod tests {
         token.notify();
 
         // assert
-        assert_eq!(counter.load(Ordering::SeqCst), 1);
+        assert_eq!(counter.load(Relaxed), 1);
     }
 }

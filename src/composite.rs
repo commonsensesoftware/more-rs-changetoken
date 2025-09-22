@@ -98,7 +98,7 @@ mod tests {
     use crate::*;
     use std::iter::empty;
     use std::sync::{
-        atomic::{AtomicU8, Ordering},
+        atomic::{AtomicU8, Ordering::Relaxed},
         Arc,
     };
 
@@ -191,7 +191,7 @@ mod tests {
                     .unwrap()
                     .downcast_ref::<AtomicU8>()
                     .unwrap()
-                    .fetch_add(1, Ordering::SeqCst);
+                    .fetch_add(1, Relaxed);
             }),
             Some(counter.clone()),
         );
@@ -200,7 +200,7 @@ mod tests {
         child.notify();
 
         // assert
-        assert_eq!(counter.load(Ordering::SeqCst), 1);
+        assert_eq!(counter.load(Relaxed), 1);
     }
 
     #[test]
@@ -216,7 +216,7 @@ mod tests {
                     .unwrap()
                     .downcast_ref::<AtomicU8>()
                     .unwrap()
-                    .fetch_add(1, Ordering::SeqCst);
+                    .fetch_add(1, Relaxed);
             }),
             Some(counter.clone()),
         );
@@ -227,7 +227,7 @@ mod tests {
         child.notify();
 
         // assert
-        assert_eq!(counter.load(Ordering::SeqCst), 1);
+        assert_eq!(counter.load(Relaxed), 1);
     }
 
     #[test]
@@ -243,7 +243,7 @@ mod tests {
                     .unwrap()
                     .downcast_ref::<AtomicU8>()
                     .unwrap()
-                    .fetch_add(1, Ordering::SeqCst);
+                    .fetch_add(1, Relaxed);
             }),
             Some(counter.clone()),
         );
@@ -254,6 +254,6 @@ mod tests {
         token.notify();
 
         // assert
-        assert_eq!(counter.load(Ordering::SeqCst), 1);
+        assert_eq!(counter.load(Relaxed), 1);
     }
 }

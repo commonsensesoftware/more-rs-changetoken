@@ -1,8 +1,5 @@
-use crate::{Callback, ChangeToken, Registration, SharedChangeToken, SingleChangeToken};
-use std::{
-    any::Any,
-    sync::{Arc, Weak},
-};
+use crate::{Callback, ChangeToken, Registration, SharedChangeToken, SingleChangeToken, State};
+use std::sync::{Arc, Weak};
 
 struct Mediator {
     parent: SharedChangeToken<SingleChangeToken>,
@@ -11,10 +8,7 @@ struct Mediator {
 }
 
 impl Mediator {
-    fn new(
-        parent: SharedChangeToken<SingleChangeToken>,
-        tokens: Vec<Box<dyn ChangeToken>>,
-    ) -> Arc<Self> {
+    fn new(parent: SharedChangeToken<SingleChangeToken>, tokens: Vec<Box<dyn ChangeToken>>) -> Arc<Self> {
         Arc::new_cyclic(|me| {
             let registrations = Self::register(me, &tokens);
             Self {
@@ -50,7 +44,7 @@ impl Mediator {
     }
 }
 
-/// Represents a composition of one or more [`ChangeToken`](crate::ChangeToken) instances.
+/// Represents a composition of one or more [`ChangeToken`](ChangeToken) instances.
 pub struct CompositeChangeToken {
     inner: SharedChangeToken<SingleChangeToken>,
     mediator: Arc<Mediator>,
@@ -61,7 +55,7 @@ impl CompositeChangeToken {
     ///
     /// # Arguments
     ///
-    /// * `tokens` - A sequence of [`ChangeToken`](crate::ChangeToken) instances
+    /// * `tokens` - A sequence of [`ChangeToken`](ChangeToken) instances
     pub fn new(tokens: impl Iterator<Item = Box<dyn ChangeToken>>) -> Self {
         let inner = SharedChangeToken::<SingleChangeToken>::default();
         let shared: SharedChangeToken<SingleChangeToken> = inner.clone();
@@ -72,6 +66,7 @@ impl CompositeChangeToken {
     }
 
     /// Notifies any registered callbacks of a change.
+    #[inline]
     pub fn notify(&self) {
         self.inner.notify()
     }
@@ -86,21 +81,31 @@ impl ChangeToken for CompositeChangeToken {
         self.mediator.children.iter().all(|t| t.must_poll())
     }
 
-    fn register(&self, callback: Callback, state: Option<Arc<dyn Any>>) -> Registration {
+    fn register(&self, callback: Callback, state: State) -> Registration {
         self.inner.register(callback, state)
     }
 }
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
-    use crate::*;
+    use crate::{assert_send_and_sync, DefaultChangeToken, NeverChangeToken};
     use std::iter::empty;
     use std::sync::{
         atomic::{AtomicU8, Ordering::Relaxed},
         Arc,
     };
+
+    #[test]
+    fn composite_change_token_should_send_and_sync() {
+        // arrange
+        let token = CompositeChangeToken::new(empty());
+
+        // act
+
+        // assert
+        assert_send_and_sync(token);
+    }
 
     #[test]
     fn changed_should_be_false_when_no_changes_have_occurred() {
@@ -165,10 +170,8 @@ mod tests {
     #[test]
     fn must_poll_should_be_false_if_at_least_one_token_supports_callbacks() {
         // arrange
-        let tokens: Vec<Box<dyn ChangeToken>> = vec![
-            Box::new(NeverChangeToken::new()),
-            Box::new(SingleChangeToken::new()),
-        ];
+        let tokens: Vec<Box<dyn ChangeToken>> =
+            vec![Box::new(NeverChangeToken::new()), Box::new(SingleChangeToken::new())];
         let token = CompositeChangeToken::new(tokens.into_iter());
 
         // act
@@ -187,11 +190,7 @@ mod tests {
         let counter = Arc::new(AtomicU8::default());
         let _registration = token.register(
             Box::new(|state| {
-                state
-                    .unwrap()
-                    .downcast_ref::<AtomicU8>()
-                    .unwrap()
-                    .fetch_add(1, Relaxed);
+                state.unwrap().downcast_ref::<AtomicU8>().unwrap().fetch_add(1, Relaxed);
             }),
             Some(counter.clone()),
         );
@@ -212,11 +211,7 @@ mod tests {
         let counter = Arc::new(AtomicU8::default());
         let _registration = token.register(
             Box::new(|state| {
-                state
-                    .unwrap()
-                    .downcast_ref::<AtomicU8>()
-                    .unwrap()
-                    .fetch_add(1, Relaxed);
+                state.unwrap().downcast_ref::<AtomicU8>().unwrap().fetch_add(1, Relaxed);
             }),
             Some(counter.clone()),
         );
@@ -239,11 +234,7 @@ mod tests {
         let counter = Arc::new(AtomicU8::default());
         let _registration = token.register(
             Box::new(|state| {
-                state
-                    .unwrap()
-                    .downcast_ref::<AtomicU8>()
-                    .unwrap()
-                    .fetch_add(1, Relaxed);
+                state.unwrap().downcast_ref::<AtomicU8>().unwrap().fetch_add(1, Relaxed);
             }),
             Some(counter.clone()),
         );

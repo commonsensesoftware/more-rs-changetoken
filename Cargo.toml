@@ -1,6 +1,6 @@
 [package]
 name = "more-changetoken"
-version = "2.0.1"
+version = "2.1.0"
 edition = "2018"
 authors = ["Chris Martinez <chris.s.martinez@outlook.com>"]
 description = "Provides support for change tokens"
@@ -9,7 +9,6 @@ license = "MIT"
 readme = "README.md"
 homepage = "https://commonsensesoftware.github.io/more-rs-changetoken/"
 repository = "https://github.com/commonsensesoftware/more-rs-changetoken"
-include = ["src/*.rs", "README.md"]
 
 # RUSTDOCFLAGS="--cfg docsrs"; cargo +nightly doc
 [package.metadata.docs.rs]
@@ -24,8 +23,8 @@ path = "src/lib.rs"
 fs = ["notify"]
 
 [dependencies]
-notify = { version = "6.1", optional = true }
+notify = { version = "8.2", optional = true }
 
 [dev-dependencies]
 more-changetoken = { path = ".", features = ["fs"] }
-tempfile = "3.22"
+tempfile = "3.27"

@@ -1,19 +1,18 @@
-use crate::{Callback, ChangeToken, Registration, SingleChangeToken};
+use crate::{Callback, ChangeToken, Registration, SingleChangeToken, State};
 use notify::{Config, RecommendedWatcher, RecursiveMode::NonRecursive, Watcher};
 use std::path::Path;
 use std::sync::mpsc::channel;
 use std::sync::Arc;
-use std::thread::{self, JoinHandle};
-use std::{any::Any, mem::ManuallyDrop};
+use std::thread::{spawn, JoinHandle};
 
-/// Represents a [`ChangeToken`](crate::ChangeToken) for a file.
+/// Represents a [`ChangeToken`](ChangeToken) for a file.
 ///
 /// # Remarks
 ///
 /// Registered notifications always occur on another thread.
 pub struct FileChangeToken {
-    watcher: ManuallyDrop<RecommendedWatcher>,
-    handle: ManuallyDrop<JoinHandle<()>>,
+    watcher: Option<RecommendedWatcher>,
+    handle: Option<JoinHandle<()>>,
     inner: Arc<SingleChangeToken>,
 }
 
@@ -29,11 +28,10 @@ impl FileChangeToken {
         let inner = Arc::new(SingleChangeToken::default());
         let handler = inner.clone();
         let (sender, receiver) = channel();
-        let mut watcher = RecommendedWatcher::new(sender, Config::default()).unwrap();
-        let handle = thread::spawn(move || {
-            if let Ok(Ok(event)) = receiver.recv() {
-                let changed =
-                    event.kind.is_modify() || event.kind.is_create() || event.kind.is_remove();
+        let mut watcher = RecommendedWatcher::new(sender, Config::default()).unwrap_or_else(|e| panic!("{}", e));
+        let handle = spawn(move || {
+            while let Ok(Ok(event)) = receiver.recv() {
+                let changed = event.kind.is_modify() || event.kind.is_create() || event.kind.is_remove();
 
                 if changed || event.need_rescan() {
                     let mut paths = event.paths.iter();
@@ -41,6 +39,7 @@ impl FileChangeToken {
 
                     if paths.any(|p| p.as_os_str().eq_ignore_ascii_case(other)) {
                         handler.notify();
+                        break;
                     }
                 }
             }
@@ -53,53 +52,65 @@ impl FileChangeToken {
         }
 
         Self {
-            watcher: ManuallyDrop::new(watcher),
-            handle: ManuallyDrop::new(handle),
+            watcher: Some(watcher),
+            handle: Some(handle),
             inner,
         }
     }
 }
 
 impl ChangeToken for FileChangeToken {
+    #[inline]
     fn changed(&self) -> bool {
         self.inner.changed()
     }
 
-    fn register(&self, callback: Callback, state: Option<Arc<dyn Any>>) -> Registration {
+    #[inline]
+    fn register(&self, callback: Callback, state: State) -> Registration {
         self.inner.register(callback, state)
     }
 }
 
 impl Drop for FileChangeToken {
     fn drop(&mut self) {
-        // manual drop is necessary to control terminating
-        // the channel receiver. if we don't, then we will
-        // likely deadlock while waiting to join the
-        // receiver's background thread
-        let handle = unsafe {
-            let _ = ManuallyDrop::take(&mut self.watcher);
-            ManuallyDrop::take(&mut self.handle)
-        };
-        handle.join().ok();
+        let _ = self.watcher.take();
+
+        if let Some(handle) = self.handle.take() {
+            handle.join().ok();
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use std::sync::{
         atomic::{AtomicBool, Ordering::Relaxed},
         Arc, Condvar, Mutex,
     };
     use std::time::{Duration, Instant};
-    use std::{fs::File, io::Write};
-    use tempfile::{NamedTempFile, TempPath};
+    use std::{fs::File, io::Write, thread::sleep};
+    use tempfile::{tempdir, NamedTempFile, TempPath};
+        use crate::assert_send_and_sync;
+
+    #[test]
+    fn file_change_token_should_send_and_sync() {
+        // arrange
+        let dir = tempdir().expect("temp dir");
+        let file = NamedTempFile::new_in(&dir).expect("new file");
+        let token = FileChangeToken::new(file.path());
+
+        // act
+
+        // assert
+        assert_send_and_sync(token);
+    }
 
     #[test]
     fn changed_should_be_false_when_source_file_is_unchanged() {
         // arrange
-        let mut file = NamedTempFile::new().expect("new file");
+        let dir = tempdir().expect("temp dir");
+        let mut file = NamedTempFile::new_in(&dir).expect("new file");
 
         file.write_all("test".as_bytes()).unwrap();
 
@@ -115,7 +126,8 @@ mod tests {
     #[test]
     fn changed_should_be_true_when_source_file_changes() {
         // arrange
-        let mut file = NamedTempFile::new().expect("new file");
+        let dir = tempdir().expect("temp dir");
+        let mut file = NamedTempFile::new_in(&dir).expect("new file");
 
         file.write_all("original".as_bytes()).unwrap();
 
@@ -124,7 +136,7 @@ mod tests {
         let mut file = NamedTempFile::from_parts(File::create(&path).expect("valid path"), path);
 
         file.write_all("updated".as_bytes()).unwrap();
-        thread::sleep(Duration::from_millis(250));
+        sleep(Duration::from_millis(250));
 
         // act
         let changed = token.changed();
@@ -136,7 +148,8 @@ mod tests {
     #[test]
     fn callback_should_be_invoked_when_source_file_changes() {
         // arrange
-        let mut file = NamedTempFile::new().expect("new file");
+        let dir = tempdir().expect("temp dir");
+        let mut file = NamedTempFile::new_in(&dir).expect("new file");
 
         file.write_all("original".as_bytes()).unwrap();
 
@@ -146,9 +159,7 @@ mod tests {
         let _unused = token.register(
             Box::new(|state| {
                 let data = state.unwrap();
-                let (fired, event, value) = data
-                    .downcast_ref::<(Mutex<bool>, Condvar, AtomicBool)>()
-                    .unwrap();
+                let (fired, event, value) = data.downcast_ref::<(Mutex<bool>, Condvar, AtomicBool)>().unwrap();
                 value.store(true, Relaxed);
                 *fired.lock().unwrap() = true;
                 event.notify_one();
@@ -177,7 +188,8 @@ mod tests {
     #[test]
     fn callback_should_not_be_invoked_after_token_is_dropped() {
         // arrange
-        let mut file = NamedTempFile::new().expect("new file");
+        let dir = tempdir().expect("temp dir");
+        let mut file = NamedTempFile::new_in(&dir).expect("new file");
 
         file.write_all("original".as_bytes()).unwrap();
 
@@ -194,13 +206,15 @@ mod tests {
             }),
             Some(changed.clone()),
         );
-        let mut file = NamedTempFile::from_parts(File::create(&path).expect("valid path"), path);
 
         // act
         drop(registration);
         drop(token);
+        
+        let mut file = NamedTempFile::from_parts(File::create(&path).expect("valid path"), path);
+        
         file.write_all("updated".as_bytes()).unwrap();
-        thread::sleep(Duration::from_millis(250));
+        sleep(Duration::from_millis(250));
 
         // assert
         assert_eq!(changed.load(Relaxed), false);
@@ -209,15 +223,14 @@ mod tests {
     #[test]
     fn callback_should_be_invoked_when_source_file_is_created() {
         // arrange
-        let path = std::env::temp_dir().join("new_file.txt");
+        let dir = tempdir().expect("temp dir");
+        let path = dir.path().join("new_file.txt");
         let state = Arc::new((Mutex::new(false), Condvar::new(), AtomicBool::default()));
         let token = FileChangeToken::new(&path);
         let _unused = token.register(
             Box::new(|state| {
                 let data = state.unwrap();
-                let (fired, event, value) = data
-                    .downcast_ref::<(Mutex<bool>, Condvar, AtomicBool)>()
-                    .unwrap();
+                let (fired, event, value) = data.downcast_ref::<(Mutex<bool>, Condvar, AtomicBool)>().unwrap();
                 value.store(true, Relaxed);
                 *fired.lock().unwrap() = true;
                 event.notify_one();
@@ -226,7 +239,7 @@ mod tests {
         );
         let mut file = NamedTempFile::from_parts(
             File::create(&path).expect("valid path"),
-            TempPath::from_path(path),
+            TempPath::try_from_path(path).unwrap(),
         );
 
         // act
@@ -249,7 +262,8 @@ mod tests {
     #[test]
     fn callback_should_be_invoked_when_source_file_is_removed() {
         // arrange
-        let mut file = NamedTempFile::new().expect("new file");
+        let dir = tempdir().expect("temp dir");
+        let mut file = NamedTempFile::new_in(&dir).expect("new file");
 
         file.write_all("existing".as_bytes()).unwrap();
 
@@ -258,9 +272,7 @@ mod tests {
         let _unused = token.register(
             Box::new(|state| {
                 let data = state.unwrap();
-                let (fired, event, value) = data
-                    .downcast_ref::<(Mutex<bool>, Condvar, AtomicBool)>()
-                    .unwrap();
+                let (fired, event, value) = data.downcast_ref::<(Mutex<bool>, Condvar, AtomicBool)>().unwrap();
                 value.store(true, Relaxed);
                 *fired.lock().unwrap() = true;
                 event.notify_one();

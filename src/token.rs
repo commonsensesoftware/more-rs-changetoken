@@ -1,29 +1,36 @@
-use std::{any::Any, sync::Arc, ops::Deref};
+use std::{any::Any, ops::Deref, sync::Arc};
 
-pub type Callback = Box<dyn Fn(Option<Arc<dyn Any>>) + Send + Sync>;
-type CallbackRef = Arc<dyn Fn(Option<Arc<dyn Any>>) + Send + Sync>;
+/// Represents the state associated with a change notification.
+pub type State = Option<Arc<dyn Any + Send + Sync>>;
+
+/// Represents a change notification callback.
+pub type Callback = Box<dyn Fn(State) + Send + Sync>;
+
+type CallbackRef = Arc<dyn Fn(State) + Send + Sync>;
 
 /// Represents a [`ChangeToken`](crate::ChangeToken) registration.
 ///
 /// # Remarks
 ///
 /// When the registration is dropped, the underlying callback is unregistered.
-#[allow(dead_code)]
-pub struct Registration(CallbackRef);
+pub struct Registration(#[allow(dead_code)] CallbackRef);
 
 impl Registration {
     /// Initializes a new change token registration.
+    #[inline]
     pub fn new(callback: CallbackRef) -> Self {
         Self(callback)
     }
 
     /// Initializes a new, empty change token registration.
+    #[inline]
     pub fn none() -> Self {
         Self::default()
     }
 }
 
 impl Default for Registration {
+    #[inline]
     fn default() -> Self {
         Self(Arc::new(|_| {}))
     }
@@ -51,26 +58,30 @@ pub trait ChangeToken: Send + Sync {
     /// # Arguments
     ///
     /// * `callback` - The callback to invoke
-    /// * `state` - The optional state provided to the callback, if any
-    /// 
+    /// * `state` - The optional [state](State) provided to the callback, if any
+    ///
     /// # Returns
-    /// 
+    ///
     /// An opaque change token [registration](Registration). When it
     /// is dropped, the callback function is unregistered.
-    fn register(&self, callback: Callback, state: Option<Arc<dyn Any>>) -> Registration;
+    #[must_use]
+    fn register(&self, callback: Callback, state: State) -> Registration;
 }
 
 // this allows Box<dyn ChangeToken> to be used for T: ChangeToken
 impl ChangeToken for Box<dyn ChangeToken> {
+    #[inline]
     fn changed(&self) -> bool {
         self.deref().changed()
     }
-    
+
+    #[inline]
     fn must_poll(&self) -> bool {
         self.deref().must_poll()
     }
 
-    fn register(&self, callback: Callback, state: Option<Arc<dyn Any>>) -> Registration {
+    #[inline]
+    fn register(&self, callback: Callback, state: State) -> Registration {
         self.deref().register(callback, state)
     }
 }

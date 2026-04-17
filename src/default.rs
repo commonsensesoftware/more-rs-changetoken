@@ -1,11 +1,12 @@
-use crate::{Callback, ChangeToken, Registration};
+use crate::{Callback, ChangeToken, Registration, State};
 use std::{
-    any::Any,
-    mem,
-    sync::{Arc, Mutex, Weak},
+    sync::{
+        atomic::{AtomicBool, Ordering::Relaxed},
+        Arc, RwLock, Weak,
+    },
+    vec::IntoIter,
 };
 
-type State = Option<Arc<dyn Any>>;
 type StatefulCallback = dyn Fn(State) + Send + Sync;
 type CallbackWithState = (Weak<StatefulCallback>, State);
 
@@ -16,8 +17,9 @@ struct Ready {
 
 impl IntoIterator for Ready {
     type Item = (Arc<StatefulCallback>, State);
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = IntoIter<Self::Item>;
 
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.callbacks.into_iter()
     }
@@ -25,14 +27,19 @@ impl IntoIterator for Ready {
 
 #[derive(Default)]
 struct Notification {
-    fired: bool,
+    fired: AtomicBool,
     callbacks: Vec<CallbackWithState>,
 }
 
 impl Notification {
-    fn fire(&mut self, once: bool) -> Ready {
+    fn fire(&self, once: bool) -> Ready {
+        let fired = match self.fired.compare_exchange(false, once, Relaxed, Relaxed) {
+            Ok(value) => value,
+            Err(value) => value,
+        };
+
         Ready {
-            fired: mem::replace(&mut self.fired, once),
+            fired,
             callbacks: self
                 .callbacks
                 .iter()
@@ -41,17 +48,10 @@ impl Notification {
         }
     }
 
-    fn register(
-        &mut self,
-        callback: Callback,
-        state: Option<Arc<dyn Any>>,
-    ) -> Arc<StatefulCallback> {
-        // writes are much infrequent, so do the trimming of any dead callbacks now
-        if !self.callbacks.is_empty() {
-            for i in (0..self.callbacks.len()).rev() {
-                if self.callbacks[i].0.upgrade().is_none() {
-                    self.callbacks.remove(i);
-                }
+    fn register(&mut self, callback: Callback, state: State) -> Arc<StatefulCallback> {
+        for i in (0..self.callbacks.len()).rev() {
+            if self.callbacks[i].0.upgrade().is_none() {
+                self.callbacks.remove(i);
             }
         }
 
@@ -62,11 +62,11 @@ impl Notification {
     }
 }
 
-/// Represents a default [`ChangeToken`](crate::ChangeToken) that may change zero or more times.
+/// Represents a default [`ChangeToken`](ChangeToken) that may change zero or more times.
 #[derive(Default)]
 pub struct DefaultChangeToken {
     once: bool,
-    notification: Mutex<Notification>,
+    notification: RwLock<Notification>,
 }
 
 impl DefaultChangeToken {
@@ -78,13 +78,14 @@ impl DefaultChangeToken {
     }
 
     /// Initializes a new default change token.
+    #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Notifies any registered callbacks of a change.
     pub fn notify(&self) {
-        let notification = self.notification.lock().unwrap().fire(self.once);
+        let notification = self.notification.read().unwrap().fire(self.once);
 
         if !notification.fired {
             for (callback, state) in notification {
@@ -95,30 +96,36 @@ impl DefaultChangeToken {
 }
 
 impl ChangeToken for DefaultChangeToken {
+    #[inline]
     fn changed(&self) -> bool {
-        // this is uninteresting and unusable in sync contexts. the value
-        // will be true, invoke callbacks, and then likely revert to false
-        // before it can be observed. it 'might' be useful in an async context,
-        // but a callback is the most practical way a change would be observed
-        self.notification.lock().unwrap().fired
+        // always false unless self.once = true, which is used by SingleChangeToken
+        self.notification.read().unwrap().fired.load(Relaxed)
     }
 
-    fn register(&self, callback: Callback, state: Option<Arc<dyn Any>>) -> Registration {
-        Registration::new(self.notification.lock().unwrap().register(callback, state))
+    fn register(&self, callback: Callback, state: State) -> Registration {
+        Registration::new(self.notification.write().unwrap().register(callback, state))
     }
 }
 
-unsafe impl Send for DefaultChangeToken {}
-unsafe impl Sync for DefaultChangeToken {}
-
 #[cfg(test)]
 mod tests {
-
     use super::*;
+    use crate::assert_send_and_sync;
     use std::sync::{
         atomic::{AtomicU8, Ordering::Relaxed},
         Arc,
     };
+
+    #[test]
+    fn default_change_token_should_send_and_sync() {
+        // arrange
+        let token = DefaultChangeToken::default();
+
+        // act
+
+        // assert
+        assert_send_and_sync(token);
+    }
 
     #[test]
     fn default_change_token_should_be_unchanged() {
@@ -139,11 +146,7 @@ mod tests {
         let token = DefaultChangeToken::default();
         let _registration = token.register(
             Box::new(|state| {
-                state
-                    .unwrap()
-                    .downcast_ref::<AtomicU8>()
-                    .unwrap()
-                    .fetch_add(1, Relaxed);
+                state.unwrap().downcast_ref::<AtomicU8>().unwrap().fetch_add(1, Relaxed);
             }),
             Some(counter.clone()),
         );
@@ -162,11 +165,7 @@ mod tests {
         let token = DefaultChangeToken::default();
         let _registration = token.register(
             Box::new(|state| {
-                state
-                    .unwrap()
-                    .downcast_ref::<AtomicU8>()
-                    .unwrap()
-                    .fetch_add(1, Relaxed);
+                state.unwrap().downcast_ref::<AtomicU8>().unwrap().fetch_add(1, Relaxed);
             }),
             Some(counter.clone()),
         );

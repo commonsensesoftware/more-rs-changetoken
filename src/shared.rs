@@ -1,77 +1,95 @@
-use crate::{Callback, ChangeToken, DefaultChangeToken, Registration};
-use std::{borrow::Borrow, ops::Deref, sync::Arc, any::Any};
+use crate::{Callback, ChangeToken, DefaultChangeToken, Registration, State};
+use std::{borrow::Borrow, ops::Deref, sync::Arc};
 
-/// Represents a shared [`ChangeToken`](crate::ChangeToken).
-pub struct SharedChangeToken<T: ChangeToken = DefaultChangeToken> {
-    inner: Arc<T>,
-}
+/// Represents a shared [`ChangeToken`](ChangeToken).
+pub struct SharedChangeToken<T: ChangeToken = DefaultChangeToken>(Arc<T>);
 
 impl<T: ChangeToken> SharedChangeToken<T> {
     /// Initializes a new shared change token.
-    /// 
+    ///
     /// # Arguments
-    /// 
-    /// * `token` - The [`ChangeToken`](crate::ChangeToken) to be shared
+    ///
+    /// * `token` - The [`ChangeToken`](ChangeToken) to be shared
+    #[inline]
     pub fn new(token: T) -> Self {
         Self::from(token)
     }
 }
 
 impl<T: ChangeToken + Default> Default for SharedChangeToken<T> {
+    #[inline]
     fn default() -> Self {
         Self::from(T::default())
     }
 }
 
 impl<T: ChangeToken> Clone for SharedChangeToken<T> {
+    #[inline]
     fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
+        Self(self.0.clone())
     }
 }
 
 impl<T: ChangeToken> From<T> for SharedChangeToken<T> {
+    #[inline]
     fn from(token: T) -> Self {
-        Self {
-            inner: Arc::new(token),
-        }
+        Self(Arc::new(token))
     }
 }
 
 impl<T: ChangeToken> ChangeToken for SharedChangeToken<T> {
+    #[inline]
     fn changed(&self) -> bool {
-        self.inner.changed()
+        self.0.changed()
     }
 
+    #[inline]
     fn must_poll(&self) -> bool {
-        self.inner.must_poll()
+        self.0.must_poll()
     }
 
-    fn register(&self, callback: Callback, state: Option<Arc<dyn Any>>) -> Registration {
-        self.inner.register(callback, state)
+    #[inline]
+    fn register(&self, callback: Callback, state: State) -> Registration {
+        self.0.register(callback, state)
     }
 }
 
 impl<T: ChangeToken> AsRef<T> for SharedChangeToken<T> {
+    #[inline]
     fn as_ref(&self) -> &T {
-        &self.inner
+        &self.0
     }
 }
 
 impl<T: ChangeToken> Deref for SharedChangeToken<T> {
     type Target = T;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.0
     }
 }
 
 impl<T: ChangeToken> Borrow<T> for SharedChangeToken<T> {
+    #[inline]
     fn borrow(&self) -> &T {
-        &self.inner
+        &self.0
     }
 }
 
-unsafe impl<T: ChangeToken> Send for SharedChangeToken<T> {}
-unsafe impl<T: ChangeToken> Sync for SharedChangeToken<T> {}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::assert_send_and_sync;
+
+    #[test]
+    fn shared_change_token_should_send_and_sync() {
+        // arrange
+        let token = SharedChangeToken::<DefaultChangeToken>::default();
+
+        // act
+
+        // assert
+        assert_send_and_sync(token);
+    }
+}

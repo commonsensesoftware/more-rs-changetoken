@@ -25,4 +25,7 @@ mod file;
 pub use file::*;
 
 /// Defines the behavior of an opaque subscription.
-pub trait Subscription {}
+pub trait Subscription: Send + Sync {}
+
+#[cfg(test)]
+pub(crate) fn assert_send_and_sync<T: Send + Sync>(_: T) {}
